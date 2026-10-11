@@ -1,3 +1,12 @@
+## [1.7.4](https://github.com/rabraghib/DarijaScript/compare/v1.7.3...v1.7.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* update website domains and repair schema link ([7a753ef](https://github.com/rabraghib/DarijaScript/commit/7a753effa280b7255676ff1aa79f331299e59153))
+
+
+
 ## [1.7.3](https://github.com/rabraghib/DarijaScript/compare/v1.7.2...v1.7.3) (2026-10-11)
 
 
