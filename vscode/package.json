@@ -1,6 +1,6 @@
 {
   "name": "ds-language-service",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "publisher": "rabraghib",
   "displayName": "DarijaScript",
   "description": "DarijaScript highlighting, completions, syntax diagnostics, and formatting.",

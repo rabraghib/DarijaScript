@@ -1,3 +1,12 @@
+## [2.0.1](https://github.com/rabraghib/DarijaScript/compare/v2.0.0...v2.0.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **language:** rename toLetter built-in to rdoChar ([7f50cdc](https://github.com/rabraghib/DarijaScript/commit/7f50cdc0ca38896bead3a19a0c0ba1b55c52ceff))
+
+
+
 # [2.0.0](https://github.com/rabraghib/DarijaScript/compare/v1.7.4...v2.0.0) (2026-10-11)
 
 
