@@ -36,4 +36,5 @@ yarn-error.log*
 next-env.d.ts
 
 public/darijascript-bin-web.wasm
+public/wasm_exec.js
 public/temp/

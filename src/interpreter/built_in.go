@@ -2,9 +2,12 @@ package interpreter
 
 import (
 	"fmt"
+	"io"
 	"math"
+	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rabraghib/darijascript/src/parser"
@@ -50,8 +53,8 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(arg)
-		return nil, nil
+		_, err = fmt.Fprintln(eval.output, displayValue(arg))
+		return nil, err
 	case "dakhel":
 		if runtime.GOOS == "js" {
 			return nil, fmt.Errorf("dakhel() is not supported in the browser")
@@ -64,11 +67,15 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 			if err != nil {
 				return nil, err
 			}
-			fmt.Print(message)
+			if _, err := fmt.Fprint(eval.output, displayValue(message)); err != nil {
+				return nil, err
+			}
 		}
-		var input string
-		fmt.Scanln(&input)
-		return input, nil
+		input, err := eval.input.ReadString('\n')
+		if err != nil && (err != io.EOF || len(input) == 0) {
+			return nil, err
+		}
+		return strings.TrimSuffix(strings.TrimSuffix(input, "\n"), "\r"), nil
 	case "rdo3adad", "rdoBooleen", "rdoString":
 		if len(callExpression.Arguments) != 1 {
 			return nil, fmt.Errorf(
@@ -99,9 +106,9 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		}
 		return list, nil
 	case "infini":
-		// if len(callExpression.Arguments) != 0 {
-		// 	return nil, fmt.Errorf("infini() takes exactly 0 arguments, %d given", len(callExpression.Arguments))
-		// }
+		if len(callExpression.Arguments) != 0 {
+			return nil, fmt.Errorf("infini() takes exactly 0 arguments, %d given", len(callExpression.Arguments))
+		}
 		return math.Inf(1), nil
 	case "len":
 		if len(callExpression.Arguments) != 1 {
@@ -113,11 +120,11 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		}
 		switch v := arg.(type) {
 		case []interface{}:
-			return len(v), nil
+			return float64(len(v)), nil
 		case string:
-			return len(v), nil
+			return float64(len(v)), nil
 		case map[string]interface{}:
-			return len(v), nil
+			return float64(len(v)), nil
 		default:
 			return nil, fmt.Errorf("unsupported type for len(): %T", arg)
 		}
@@ -133,11 +140,11 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		if err != nil {
 			return nil, err
 		}
-		num, err := convertToInt64(n)
+		num, err := integer(n, 1_000_000)
 		if err != nil {
 			return nil, err
 		}
-		row := make([]interface{}, int(num))
+		row := make([]interface{}, num)
 		for i := range row {
 			row[i] = value
 		}
@@ -150,14 +157,11 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		if err != nil {
 			return nil, err
 		}
-		num, err := convertToInt64(n)
+		num, err := integer(n, 25)
 		if err != nil {
 			return nil, err
 		}
-		if num < 0 || num > 25 {
-			return nil, fmt.Errorf("toLetter() argument out of range: %d", int(num))
-		}
-		return string('A' + int(num)), nil
+		return string(rune('A' + num)), nil
 	case "ara":
 		if len(callExpression.Arguments) < 2 {
 			return nil, fmt.Errorf("ara() takes at least 2 arguments, %d given", len(callExpression.Arguments))
@@ -172,15 +176,11 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 			if err != nil {
 				return nil, err
 			}
-			idx, err := convertToInt64(indexArg)
-			if err != nil {
-				return nil, err
-			}
-			index := int(idx)
 			switch v := current.(type) {
 			case []interface{}:
-				if index < 0 || int(index) >= len(v) {
-					return nil, fmt.Errorf("index %d out of range at level %d", index, i)
+				index, err := integer(indexArg, len(v)-1)
+				if err != nil {
+					return nil, err
 				}
 				current = v[index]
 
@@ -201,61 +201,31 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		if err != nil {
 			return nil, err
 		}
-		switch v := arg.(type) {
-		case []interface{}:
-			index, err := eval.evaluateExpression(callExpression.Arguments[1])
+		current := arg
+		for i := 1; i < len(callExpression.Arguments)-1; i++ {
+			values, ok := current.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("expected list at index level %d", i)
+			}
+			indexArg, err := eval.evaluateExpression(callExpression.Arguments[i])
 			if err != nil {
 				return nil, err
 			}
-			i, err := convertToInt64(index)
+			index, err := integer(indexArg, len(values)-1)
 			if err != nil {
 				return nil, err
 			}
-			if i < 0 || int(i) >= len(v) {
-				return nil, fmt.Errorf("index out of range: %d", int(i))
+			if i == len(callExpression.Arguments)-2 {
+				value, err := eval.evaluateExpression(callExpression.Arguments[i+1])
+				if err != nil {
+					return nil, err
+				}
+				values[index] = value
+				return nil, nil
 			}
-			value, err := eval.evaluateExpression(callExpression.Arguments[2])
-			if err != nil {
-				return nil, err
-			}
-			v[int(i)] = value
-			return nil, nil
-		// case [][]interface{}:
-		// 	if len(callExpression.Arguments) != 4 {
-		// 		return nil, fmt.Errorf("atih() takes exactly 4 arguments, %d given", len(callExpression.Arguments))
-		// 	}
-		// 	row, err := eval.evaluateExpression(callExpression.Arguments[1])
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	col, err := eval.evaluateExpression(callExpression.Arguments[2])
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	i, err := convertToInt64(row)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	j, err := convertToInt64(col)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	if i < 0 || int(i) >= len(v) {
-		// 		return nil, fmt.Errorf("row index out of range: %d", int(i))
-		// 	}
-		// 	if j < 0 || int(j) >= len(v[int(i)]) {
-		// 		return nil, fmt.Errorf("column index out of range: %d", int(j))
-		// 	}
-		// 	value, err := eval.evaluateExpression(callExpression.Arguments[3])
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	v[int(i)][int(j)] = value
-		// 	return nil, nil
-
-		default:
-			return nil, fmt.Errorf("unsupported type for atih(): %T", arg)
+			current = values[index]
 		}
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("function not found: %s", callExpression.Function.Value)
 	}
@@ -310,7 +280,44 @@ func convertToString(value interface{}) (string, error) {
 	case string:
 		return v, nil
 	default:
-		return fmt.Sprint(value), nil
+		return displayValue(value), nil
 		// return "", fmt.Errorf("unsupported type for string conversion: %T", value)
 	}
+}
+
+func integer(value interface{}, max int) (int, error) {
+	n, err := convertToInt64(value)
+	if err != nil {
+		return 0, err
+	}
+	if math.IsNaN(n) || math.IsInf(n, 0) || math.Trunc(n) != n || n < 0 || n > float64(max) {
+		return 0, fmt.Errorf("expected an integer in range 0..%d, got %v", max, n)
+	}
+	return int(n), nil
+}
+
+// atih() can create self-referencing lists; format them without infinite recursion.
+func displayValue(value interface{}) string { return formatValue(value, map[uintptr]bool{}) }
+
+func formatValue(value interface{}, visiting map[uintptr]bool) string {
+	values, ok := value.([]interface{})
+	if !ok {
+		return fmt.Sprint(value)
+	}
+	key := reflect.ValueOf(values).Pointer()
+	if visiting[key] {
+		return "<cycle>"
+	}
+	visiting[key] = true
+	defer delete(visiting, key)
+	var text strings.Builder
+	text.WriteByte('[')
+	for i, item := range values {
+		if i > 0 {
+			text.WriteByte(' ')
+		}
+		text.WriteString(formatValue(item, visiting))
+	}
+	text.WriteByte(']')
+	return text.String()
 }

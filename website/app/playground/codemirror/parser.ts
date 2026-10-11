@@ -56,8 +56,7 @@ export const parserWithMetadata = parser.configure({
 });
 
 function getParser() {
-  const spec_identifier: any = {
-    __proto__: null,
+  const spec_identifier: Record<string, number> = {
     true: 24,
     false: 24,
     s7i7: 24,
@@ -125,7 +124,7 @@ function getParser() {
     topRules: { Program: [0, 3] },
     dynamicPrecedences: { '65': -1 },
     specialized: [
-      { term: 64, get: (value: any) => spec_identifier[value] || -1 },
+      { term: 64, get: (value: string) => Object.hasOwn(spec_identifier, value) ? spec_identifier[value] : -1 },
     ],
     tokenPrec: 748,
   });

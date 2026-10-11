@@ -16,7 +16,7 @@ export const FontSizeThemeExtension: Extension = [FontSizeTheme];
 const darijaScriptLanguage = LRLanguage.define({
   parser: parserWithMetadata,
   languageData: {
-    commentTokens: { line: ';' },
+    commentTokens: { line: '#', block: { open: '/*', close: '*/' } },
   },
 });
 

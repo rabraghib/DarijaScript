@@ -47,7 +47,24 @@ Discover various DarijaScript code examples in the [examples](examples) folder.
 
 ## Documentation
 
-Refer to the [DarijaScript Online Playground](https://darijascript.rabraghib.me) for an interactive experience and detailed documentation.
+Try programs in the [DarijaScript Online Playground](https://darijascript.rabraghib.me).
+
+### Development
+
+Run `go build .` to build the interpreter and CLI.
+
+The `justfile` targets Linux (or WSL). For the website, install Node.js 22 or newer, Go, and [just](https://just.systems), then run from the repository root:
+
+```sh
+npm --prefix website ci
+just dev
+```
+
+The `just dev` and `just build-web` commands build the WASM binary and copy the unmodified `wasm_exec.js` from the same Go compiler. After changing Go code while the development server is running, run `just wasm` and reload the playground.
+
+Run `just build-web` to create a production website build. Deployment uses `npm run build` inside `website` with the WASM artifacts supplied by CI.
+
+CI runs `just build <tag>` to build the Windows, Linux, and macOS release binaries along with the playground WASM artifacts.
 
 ## 🤗 Before you go!
 

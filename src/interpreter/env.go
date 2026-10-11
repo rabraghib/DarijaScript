@@ -49,12 +49,14 @@ func (env *Environment) Set(name string, value interface{}) error {
 	return nil
 }
 
-func (env *Environment) Update(name string, value interface{}) {
+func (env *Environment) Update(name string, value interface{}) error {
 	if _, ok := env.store[name]; ok {
 		env.store[name] = value
+		return nil
 	} else if env.outer != nil {
-		env.outer.Update(name, value)
+		return env.outer.Update(name, value)
 	}
+	return fmt.Errorf("identifier not found: %s", name)
 }
 
 func (env *Environment) GetFunction(name string) (*parser.FunctionDeclaration, bool, error) {

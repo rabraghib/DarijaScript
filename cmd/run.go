@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -8,28 +5,23 @@ import (
 	"os"
 
 	"github.com/rabraghib/darijascript/src/interpreter"
+	"github.com/rabraghib/darijascript/src/runtime"
 	"github.com/spf13/cobra"
 )
 
 var runCmd = &cobra.Command{
 	Use:   "run [file.ds]",
 	Short: "Run a DarijaScript program",
-	Long: `Run a DarijaScript program.
-Example:
-darijascript run my_program.ds`,
-	Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-	Run: func(cmd *cobra.Command, args []string) {
-		file := args[0]
-		sourceCode, err := os.ReadFile(file)
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		source, err := os.ReadFile(args[0])
 		if err != nil {
-			fmt.Println("Error reading source file: ", err)
-			os.Exit(1)
+			return fmt.Errorf("reading source file: %w", err)
 		}
-		eval := interpreter.NewEvaluator()
-		RunCode(string(sourceCode), eval)
+		eval := interpreter.NewEvaluatorWithIO(cmd.InOrStdin(), cmd.OutOrStdout())
+		_, err = runtime.Run(string(source), eval)
+		return err
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(runCmd)
-}
+func init() { rootCmd.AddCommand(runCmd) }

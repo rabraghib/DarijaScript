@@ -6,14 +6,14 @@ on:
       - main
 jobs:
   release-up:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.releaser.outputs.tag }}
       version: ${{ steps.releaser.outputs.version }}
       released: ${{ steps.releaser.outputs.released }}
       release_notes: ${{ steps.releaser.outputs.release_notes }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: rabraghib/releaser-action@v1
         id: releaser
         with:
@@ -24,28 +24,26 @@ jobs:
   build-deploy:
     if: needs.release-up.outputs.released == 'true'
     needs: release-up
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           ref: 'main'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 18.x
-      - uses: actions/setup-go@v5
+          node-version: 22.x
+      - uses: actions/setup-go@v6
         with:
-          go-version: 1.20.7
+          go-version: stable
+      - uses: extractions/setup-just@v4
       - name: Build for Windows, Linux, and macOS
-        run: |
-          GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/darijascript-bin-${{ needs.release-up.outputs.tag }}-linux .
-          cp bin/darijascript-bin-${{ needs.release-up.outputs.tag }}-linux bin/darijascript-bin
-          GOOS=windows GOARCH=amd64 go build -buildvcs=false -o bin/darijascript-bin-${{ needs.release-up.outputs.tag }}-windows.exe .
-          GOOS=darwin GOARCH=amd64 go build -buildvcs=false -o bin/darijascript-bin-${{ needs.release-up.outputs.tag }}-macos .
-          GOOS=js GOARCH=wasm go build -buildvcs=false -o website/public/darijascript-bin-web.wasm .
+        run: just build '${{ needs.release-up.outputs.tag }}'
       - uses: actions/upload-artifact@v4
         with:
           name: wasm-build
-          path: website/public/darijascript-bin-web.wasm
+          path: |
+            website/public/darijascript-bin-web.wasm
+            website/public/wasm_exec.js
       - name: Build vscode extension
         run: |
           npm install -g @vscode/vsce
@@ -55,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: darijascript-vscode-extension
-          path: language-service/*.vsix
+          path: bin/*.vsix
       - uses: softprops/action-gh-release@v1
         with:
           name: 'DarijaScript ${{ needs.release-up.outputs.tag }}'
@@ -66,21 +64,23 @@ jobs:
   deploy-website:
     if: needs.release-up.outputs.released == 'true'
     needs: [release-up, build-deploy]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - uses: actions/download-artifact@v4
         with:
           name: wasm-build
-          path: website/public/temp
-
-      - name: Copy wasm build to website/public
-        run: mv website/public/temp/darijascript-bin-web.wasm website/public/darijascript-bin-web.wasm
+          path: website/public
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}

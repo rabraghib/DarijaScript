@@ -1,7 +1,9 @@
 package interpreter
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 
@@ -9,15 +11,23 @@ import (
 )
 
 type Evaluator struct {
-	env *Environment
+	env    *Environment
+	input  *bufio.Reader
+	output io.Writer
+	depth  int
 }
 
 func NewEvaluator() *Evaluator {
-	return &Evaluator{env: NewEnvironment()}
+	return NewEvaluatorWithIO(os.Stdin, os.Stdout)
+}
+
+func NewEvaluatorWithIO(input io.Reader, output io.Writer) *Evaluator {
+	return &Evaluator{env: NewEnvironment(), input: bufio.NewReader(input), output: output}
 }
 
 func (eval *Evaluator) EvaluateProgram(program *parser.Program) (interface{}, error) {
-	return eval.EvaluateStatements(program.Statements)
+	value, err := eval.EvaluateStatements(program.Statements)
+	return unwrapReturn(value), err
 }
 
 func (eval *Evaluator) EvaluateStatements(statements []parser.Statement) (interface{}, error) {
@@ -82,14 +92,17 @@ func (eval *Evaluator) evaluateStatement(statement parser.Statement) (interface{
 	case *parser.BlockStatement:
 		return eval.evaluateBlockStatement(stmt)
 	case *parser.ReturnStatement:
-		return eval.evaluateExpression(stmt.ReturnValue)
+		value, err := eval.evaluateExpression(stmt.ReturnValue)
+		if err != nil {
+			return nil, err
+		}
+		return &returnSignal{value: value}, nil
 	case *parser.ThrowStatement:
 		val, err := eval.evaluateExpression(stmt.ReturnValue)
-		if val != nil {
-			fmt.Println("WAAAAAAA: ", val)
-			os.Exit(1)
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
+		return nil, fmt.Errorf("WAAAAAAA: %s", displayValue(val))
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", statement)
 	}
@@ -113,13 +126,7 @@ func (eval *Evaluator) evaluateLetStatement(stmt *parser.LetStatement) error {
 	if err != nil {
 		return err
 	}
-	err = eval.env.Set(stmt.Name.Value, val)
-
-	if err != nil {
-		fmt.Printf("9ayed %s @ %d:%d\n", stmt.Name.Value, stmt.Name.Token.Pos.Column, stmt.Name.Token.Pos.Line)
-	}
-
-	return err
+	return atToken(eval.env.Set(stmt.Name.Value, val), stmt.Name.Token)
 }
 
 func (eval *Evaluator) evaluateBlockStatement(block *parser.BlockStatement) (interface{}, error) {
@@ -127,15 +134,23 @@ func (eval *Evaluator) evaluateBlockStatement(block *parser.BlockStatement) (int
 }
 
 func (eval *Evaluator) evaluateBlockStatementExtended(block *parser.BlockStatement, extraParams map[string]interface{}) (interface{}, error) {
-	blockEnv := NewEnclosedEnvironment(eval.env)
-	eval.env = blockEnv
+	outer := eval.env
+	eval.env = NewEnclosedEnvironment(outer)
+	defer func() { eval.env = outer }()
 	for k, v := range extraParams {
 		err := eval.env.Set(k, v)
 		if err != nil {
 			return nil, err
 		}
 	}
-	val, err := eval.EvaluateStatements(block.Statements)
-	eval.env = eval.env.outer
-	return val, err
+	return eval.EvaluateStatements(block.Statements)
+}
+
+type returnSignal struct{ value interface{} }
+
+func unwrapReturn(value interface{}) interface{} {
+	if signal, ok := value.(*returnSignal); ok {
+		return signal.value
+	}
+	return value
 }

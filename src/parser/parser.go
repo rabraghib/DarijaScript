@@ -10,10 +10,25 @@ type Parser struct {
 	errors []Error
 	tokens []*lexer.Token
 	curPos int
+	depth  int
 }
 
 func NewParser(tokens []*lexer.Token) *Parser {
-	return &Parser{tokens: tokens, curPos: 0}
+	filtered := make([]*lexer.Token, 0, len(tokens)+1)
+	pos := lexer.Position{Line: 1, Column: 1}
+	for _, token := range tokens {
+		if token == nil {
+			continue
+		}
+		pos = token.Pos
+		if token.Type != lexer.TT_COMMENT {
+			filtered = append(filtered, token)
+		}
+	}
+	if len(filtered) == 0 || filtered[len(filtered)-1].Type != lexer.TT_EOF {
+		filtered = append(filtered, &lexer.Token{Type: lexer.TT_EOF, Pos: pos})
+	}
+	return &Parser{tokens: filtered}
 }
 
 func (p *Parser) errorsOrNil() error {
@@ -24,14 +39,14 @@ func (p *Parser) errorsOrNil() error {
 	for _, err := range p.errors {
 		errorMsg += fmt.Sprintf("\n\t%s at %d:%d", err.Message, err.Pos.Line, err.Pos.Column)
 	}
-	return fmt.Errorf(errorMsg)
+	return fmt.Errorf("%s", errorMsg)
 }
 
 func (p *Parser) ParseProgram() (*Program, error) {
 	program := &Program{}
 	program.Statements = []Statement{}
 
-	for !p.isAtEnd() {
+	for !p.isAtEnd() && len(p.errors) == 0 {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
@@ -46,10 +61,19 @@ func (p *Parser) isAtEnd() bool {
 }
 
 func (p *Parser) currentToken() *lexer.Token {
+	if p.curPos >= len(p.tokens) {
+		return p.tokens[len(p.tokens)-1]
+	}
 	return p.tokens[p.curPos]
 }
 
 func (p *Parser) parseStatement() Statement {
+	p.depth++
+	defer func() { p.depth-- }()
+	if p.depth > 256 {
+		p.addError("maximum parser nesting exceeded", p.currentToken())
+		return nil
+	}
 	currentToken := p.currentToken()
 	switch currentToken.Type {
 	case lexer.TT_COMMENT:
@@ -83,11 +107,11 @@ func (p *Parser) parseIfStatement(isNegative bool) *IfStatement {
 	if p.matchToken(lexer.TT_ELSE) {
 		if p.checkToken(lexer.TT_IF) {
 			ifStatement.Alternative = &BlockStatement{
-				Statements: []Statement{p.parseIfStatement(false)},
+				Statements: []Statement{p.parseStatement()},
 			}
 		} else if p.checkToken(lexer.TT_IF_NOT) {
 			ifStatement.Alternative = &BlockStatement{
-				Statements: []Statement{p.parseIfStatement(true)},
+				Statements: []Statement{p.parseStatement()},
 			}
 		} else {
 			ifStatement.Alternative = p.parseBlockStatement()
@@ -108,7 +132,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 	p.consumeTokenOfType(lexer.TT_LBRACE)
 	blockStatement := &BlockStatement{}
 	blockStatement.Statements = []Statement{}
-	for !p.checkToken(lexer.TT_RBRACE) && !p.isAtEnd() {
+	for !p.checkToken(lexer.TT_RBRACE) && !p.isAtEnd() && len(p.errors) == 0 {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			blockStatement.Statements = append(blockStatement.Statements, stmt)
@@ -176,11 +200,18 @@ func (p *Parser) parseIdentifier() *Identifier {
 
 func (p *Parser) parseFunctionParameters() []*Identifier {
 	parameters := []*Identifier{}
+	seen := map[string]bool{}
 	if p.checkToken(lexer.TT_IDENTIFIER) {
 		parameters = append(parameters, p.parseIdentifier())
 		for p.matchToken(lexer.TT_COMMA) {
 			parameters = append(parameters, p.parseIdentifier())
 		}
+	}
+	for _, parameter := range parameters {
+		if seen[parameter.Value] {
+			p.addError("duplicate parameter: "+parameter.Value, parameter.Token)
+		}
+		seen[parameter.Value] = true
 	}
 	p.consumeTokenOfType(lexer.TT_RPAREN)
 	return parameters
@@ -189,7 +220,9 @@ func (p *Parser) parseFunctionParameters() []*Identifier {
 // Utility methods
 func (p *Parser) consumeToken() *lexer.Token {
 	token := p.currentToken()
-	p.curPos++
+	if !p.isAtEnd() {
+		p.curPos++
+	}
 	return token
 }
 
@@ -200,7 +233,7 @@ func (p *Parser) consumeTokenOfType(tokenType lexer.TokenType) *lexer.Token {
 			Message: fmt.Sprintf("Expected token of type %s, got %s", tokenType, token.Type),
 			Pos:     token.Pos,
 		})
-		return nil
+		return token
 	}
 	return token
 }
@@ -214,5 +247,9 @@ func (p *Parser) matchToken(tokenType lexer.TokenType) bool {
 }
 
 func (p *Parser) checkToken(tokenType lexer.TokenType) bool {
-	return !p.isAtEnd() && p.currentToken().Type == tokenType
+	return p.currentToken().Type == tokenType
+}
+
+func (p *Parser) addError(message string, token *lexer.Token) {
+	p.errors = append(p.errors, Error{Message: message, Pos: token.Pos})
 }

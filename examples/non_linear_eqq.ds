@@ -4,7 +4,7 @@ fonksyon g(x) { rjje3 (3*x+7/x)/4; }
 
 9ayed acceptableErr = 0.0001;
 
-golih("Calculating the root of f(x) = x^3 - 2x - 5 using different methods:");
+golih("Calculating the root of f(x) = x^2 - 7 using different methods:");
 golih("1. Dicotomic method: " + dicothomy(2, 3, acceptableErr));
 golih("2. Newton's method: " + newton(2, acceptableErr));
 golih("3. Point fixe method: " + pointFixe(2, acceptableErr));

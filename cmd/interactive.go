@@ -1,49 +1,47 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
 	"bufio"
 	"fmt"
-	"os"
+	"io"
+	"strings"
 
 	"github.com/rabraghib/darijascript/src/interpreter"
+	"github.com/rabraghib/darijascript/src/runtime"
 	"github.com/spf13/cobra"
 )
 
-// interactiveCmd represents the interactive command
 var interactiveCmd = &cobra.Command{
 	Use:   "interactive",
 	Short: "Run the DarijaScript interpreter in interactive mode",
-	Long: `Run the DarijaScript interpreter in interactive mode.
-You can type DarijaScript code and it will be evaluated immediately.`,
-	Args: cobra.NoArgs,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Welcome to the DarijaScript interpreter!\n\n")
-		fmt.Printf("Type 'exit' to exit the interpreter.\n\n")
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		sourceCode := ""
-		eval := interpreter.NewEvaluator()
-		scanner := bufio.NewScanner(os.Stdin)
-		fmt.Print(">>> ")
-		for scanner.Scan() {
-			sourceCode = scanner.Text()
-			if sourceCode == "exit" {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		output := cmd.OutOrStdout()
+		reader := bufio.NewReader(cmd.InOrStdin())
+		eval := interpreter.NewEvaluatorWithIO(reader, output)
+		fmt.Fprintln(output, "Welcome to the DarijaScript interpreter!\n\nType 'exit' to exit the interpreter.")
+		for {
+			fmt.Fprint(output, ">>> ")
+			line, readErr := reader.ReadString('\n')
+			if readErr != nil && readErr != io.EOF {
+				return readErr
+			}
+			line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+			if line == "exit" {
 				break
 			}
-			if sourceCode != "" {
-				RunCode(sourceCode, eval)
+			if strings.TrimSpace(line) != "" {
+				if _, err := runtime.Run(line, eval); err != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Error:", err)
+				}
 			}
-			fmt.Print(">>> ")
+			if readErr == io.EOF {
+				break
+			}
 		}
-	},
-	PostRun: func(cmd *cobra.Command, args []string) {
-		fmt.Println("\nGoodbye!")
+		fmt.Fprintln(output, "\nGoodbye!")
+		return nil
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(interactiveCmd)
-}
+func init() { rootCmd.AddCommand(interactiveCmd) }

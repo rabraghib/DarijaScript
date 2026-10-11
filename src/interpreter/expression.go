@@ -2,12 +2,19 @@ package interpreter
 
 import (
 	"fmt"
+	"math"
+	"reflect"
 	"strconv"
 
 	"github.com/rabraghib/darijascript/src/parser"
 )
 
-func (eval *Evaluator) evaluateExpression(expression parser.Expression) (interface{}, error) {
+func (eval *Evaluator) evaluateExpression(expression parser.Expression) (value interface{}, err error) {
+	eval.depth++
+	defer func() { eval.depth--; err = atToken(err, expressionToken(expression)) }()
+	if eval.depth > 256 {
+		return nil, fmt.Errorf("maximum evaluation nesting exceeded")
+	}
 	if expression == nil {
 		return nil, nil
 	}
@@ -35,32 +42,34 @@ func (eval *Evaluator) evaluateExpression(expression parser.Expression) (interfa
 		if err != nil {
 			return nil, err
 		}
-		eval.env.Update(expr.Variable.Value, value)
+		if err := eval.env.Update(expr.Variable.Value, value); err != nil {
+			return nil, err
+		}
 		return value, nil
 	case *parser.InfixExpression:
 		leftValue, err := eval.evaluateExpression(expr.Left)
 		if err != nil {
 			return nil, err
 		}
+		if expr.Operator == "&&" || expr.Operator == "||" {
+			left, err := toBool(leftValue)
+			if err != nil {
+				return nil, err
+			}
+			if expr.Operator == "&&" && !left {
+				return false, nil
+			}
+			if expr.Operator == "||" && left {
+				return true, nil
+			}
+		}
 		rightValue, err := eval.evaluateExpression(expr.Right)
 		if err != nil {
 			return nil, err
 		}
-		val, err2 := eval.evaluateInfixExpression(expr.Operator, leftValue, rightValue)
-		if err2 != nil {
-			fmt.Printf("Error in %d:%d\n", expr.Token.Pos.Line, expr.Token.Pos.Column)
-		}
-		return val, err2
+		return eval.evaluateInfixExpression(expr.Operator, leftValue, rightValue)
 	case *parser.CallExpression:
 		return eval.evaluateCallExpression(expr)
-	// case *parser.ArrayLiteral:
-	// 	return eval.evaluateArrayLiteral(expr)
-	// case *parser.IndexExpression:
-	// 	return eval.evaluateIndexExpression(expr)
-	// case *parser.HashLiteral:
-	// 	return eval.evaluateHashLiteral(expr)
-	// case *parser.Error:
-	// 	return nil, fmt.Errorf(expr.Message)
 	default:
 		return nil, fmt.Errorf("unsupported expression type: %T", expression)
 	}
@@ -80,6 +89,8 @@ func (eval *Evaluator) evaluatePrefixExpression(operator string, rightValue inte
 			return nil, err
 		}
 		return -value, nil
+	case "+":
+		return toNumber(rightValue)
 	default:
 		return nil, fmt.Errorf("unsupported prefix operator: %s", operator)
 	}
@@ -128,6 +139,9 @@ func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interf
 		if err != nil {
 			return nil, err
 		}
+		if right == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
 		return left / right, nil
 	case "%":
 		left, err := toNumber(leftValue)
@@ -138,9 +152,13 @@ func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interf
 		if err != nil {
 			return nil, err
 		}
-		leftInt := int64(left)
-		rightInt := int64(right)
-		return float64(leftInt % rightInt), nil
+		if math.IsNaN(left) || math.IsInf(left, 0) || math.IsNaN(right) || math.IsInf(right, 0) || math.Trunc(left) != left || math.Trunc(right) != right {
+			return nil, fmt.Errorf("modulo requires finite integer operands")
+		}
+		if right == 0 {
+			return nil, fmt.Errorf("modulo by zero")
+		}
+		return math.Mod(left, right), nil
 	case "<":
 		left, err := toNumber(leftValue)
 		if err != nil {
@@ -182,9 +200,9 @@ func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interf
 		}
 		return left >= right, nil
 	case "==":
-		return leftValue == rightValue, nil
+		return reflect.DeepEqual(leftValue, rightValue), nil
 	case "!=":
-		return leftValue != rightValue, nil
+		return !reflect.DeepEqual(leftValue, rightValue), nil
 	case "&&":
 		left, err := toBool(leftValue)
 		if err != nil {
@@ -230,7 +248,8 @@ func (eval *Evaluator) evaluateCallExpression(callExpression *parser.CallExpress
 		}
 		extraParams[function.Parameters[i].Value] = value
 	}
-	return eval.evaluateBlockStatementExtended(function.Body, extraParams)
+	value, err := eval.evaluateBlockStatementExtended(function.Body, extraParams)
+	return unwrapReturn(value), err
 }
 
 func toBool(value interface{}) (bool, error) {

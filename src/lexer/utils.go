@@ -1,23 +1,25 @@
 package lexer
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+	"unicode/utf8"
+)
 
 func (l *Lexer) readChar() {
-	if l.readPosition >= len(l.input) {
-		l.ch = 0 // ASCII code for null character, indicating end of input
-	} else {
-		l.ch = rune(l.input[l.readPosition])
-	}
-
 	if l.ch == '\n' {
 		l.line++
 		l.column = 0
-	} else {
-		l.column++
 	}
-
+	l.column++
 	l.position = l.readPosition
-	l.readPosition++
+	if l.readPosition >= len(l.input) {
+		l.ch = 0
+		return
+	}
+	ch, width := utf8.DecodeRuneInString(l.input[l.readPosition:])
+	l.ch = ch
+	l.readPosition += width
 }
 
 func (l *Lexer) readNumber() string {
@@ -32,19 +34,18 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
-func (l *Lexer) readString() string {
-	position := l.position + 1
-	for {
-		l.readChar()
-		if l.ch == 0 {
-			break
-		}
+func (l *Lexer) readString() (string, error) {
+	l.readChar()
+	start := l.position
+	for l.position < len(l.input) {
 		if l.ch == '"' {
+			value := l.input[start:l.position]
 			l.readChar()
-			break
+			return value, nil
 		}
+		l.readChar()
 	}
-	return l.input[position : l.position-1]
+	return "", fmt.Errorf("unterminated string")
 }
 
 func (l *Lexer) skipWhitespace() {
@@ -63,27 +64,22 @@ func (l *Lexer) readIdentifier() string {
 
 func (l *Lexer) readComment() string {
 	position := l.position
-	for l.ch != '\n' && l.ch != 0 {
+	for l.ch != '\n' && l.position < len(l.input) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
-func (l *Lexer) readMultiLineComment() string {
+func (l *Lexer) readMultiLineComment() (string, error) {
 	position := l.position
-	endPosition := l.position
-	for {
-		l.readChar()
-		if l.ch == 0 {
-			endPosition = l.position
-			break
-		}
+	for l.position < len(l.input) {
 		if l.ch == '*' && l.peekChar() == '/' {
-			endPosition = l.position
-			l.readChar() // consume '*'
-			l.readChar() // consume '/'
-			break
+			end := l.position
+			l.readChar()
+			l.readChar()
+			return l.input[position:end], nil
 		}
+		l.readChar()
 	}
-	return l.input[position:endPosition]
+	return "", fmt.Errorf("unterminated comment")
 }

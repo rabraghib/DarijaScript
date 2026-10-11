@@ -33,7 +33,7 @@ export default function PlaygroundManager({
 
   if (starterKey !== null) {
     return (
-      <DynamicPlaygroundWithNoSSR examples={examples} starterKey={starterKey} />
+      <DynamicPlaygroundWithNoSSR key={starterKey} examples={examples} starterKey={starterKey} />
     );
   }
   return (
@@ -43,7 +43,7 @@ export default function PlaygroundManager({
         <p className="text-lg text-gray-600">Choose an example to run</p>
       </div>
       <div className="grid lg:grid-cols-2 gap-6">
-        {examples.map((example, index) => (
+        {examples.map((example) => (
           <ExampleCard key={example.key} example={example} />
         ))}
       </div>

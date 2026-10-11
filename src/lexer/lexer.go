@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"unicode"
+	"unicode/utf8"
 )
 
 type Lexer struct {
@@ -16,18 +17,17 @@ type Lexer struct {
 }
 
 func NewLexer(input string) *Lexer {
-	input += "\n"
 	l := &Lexer{input: input, line: 1, column: 0}
 	l.readChar()
 	return l
 }
 
 func isLetter(ch rune) bool {
-	return unicode.IsLetter(ch) || ch == '_'
+	return unicode.IsLetter(ch) || unicode.IsMark(ch) || ch == '_'
 }
 
 func isDigit(ch rune) bool {
-	return unicode.IsDigit(ch)
+	return ch >= '0' && ch <= '9'
 }
 
 func newToken(tokenType TokenType, literal string, pos Position) *Token {
@@ -36,7 +36,7 @@ func newToken(tokenType TokenType, literal string, pos Position) *Token {
 
 func (l *Lexer) IsEOL() bool {
 	l.skipWhitespace()
-	return l.readPosition >= len(l.input)
+	return l.position >= len(l.input)
 }
 
 func (l *Lexer) NextToken() (*Token, error) {
@@ -56,11 +56,19 @@ func (l *Lexer) NextToken() (*Token, error) {
 	if l.ch == '/' && l.peekChar() == '*' {
 		l.readChar()
 		l.readChar()
-		return newToken(TT_COMMENT, l.readMultiLineComment(), position), nil
+		literal, err := l.readMultiLineComment()
+		if err != nil {
+			return nil, fmt.Errorf("%w at %d:%d", err, position.Line, position.Column)
+		}
+		return newToken(TT_COMMENT, literal, position), nil
 	}
 
 	if l.ch == '"' {
-		return newToken(TT_STRING, l.readString(), position), nil
+		literal, err := l.readString()
+		if err != nil {
+			return nil, fmt.Errorf("%w at %d:%d", err, position.Line, position.Column)
+		}
+		return newToken(TT_STRING, literal, position), nil
 	}
 
 	if isDigit(l.ch) {
@@ -69,6 +77,7 @@ func (l *Lexer) NextToken() (*Token, error) {
 			if identifier == "9ayed" {
 				return newToken(TT_LET, identifier, position), nil
 			}
+			return nil, fmt.Errorf("invalid identifier %q at %d:%d", identifier, position.Line, position.Column)
 		} else {
 			return newToken(TT_NUMBER, l.readNumber(), position), nil
 		}
@@ -95,8 +104,7 @@ func (l *Lexer) NextToken() (*Token, error) {
 		case "rjje3":
 			return newToken(TT_RETURN, identifier, position), nil
 		default:
-			re := regexp.MustCompile("^WAA[A]*$")
-			if re.MatchString(identifier) {
+			if throwKeyword.MatchString(identifier) {
 				return newToken(TT_THROW, identifier, position), nil
 			}
 			return newToken(TT_IDENTIFIER, identifier, position), nil
@@ -132,14 +140,14 @@ func (l *Lexer) NextToken() (*Token, error) {
 			l.readChar()
 			return newToken(TT_AND, "&&", position), nil
 		}
-		return nil, fmt.Errorf("unknown token: %s at line %d column %d", string(l.ch), l.line, l.column)
+		return nil, fmt.Errorf("unknown token: & at %d:%d", position.Line, position.Column)
 	case '|':
 		l.readChar()
 		if l.ch == '|' {
 			l.readChar()
 			return newToken(TT_OR, "||", position), nil
 		}
-		return nil, fmt.Errorf("unknown token: %s at line %d column %d", string(l.ch), l.line, l.column)
+		return nil, fmt.Errorf("unknown token: | at %d:%d", position.Line, position.Column)
 	case '!':
 		l.readChar()
 		if l.ch == '=' {
@@ -191,7 +199,7 @@ func (l *Lexer) NextToken() (*Token, error) {
 
 	}
 
-	if l.ch == 0 {
+	if l.position >= len(l.input) {
 		return newToken(TT_EOF, "", position), nil
 	}
 
@@ -202,5 +210,8 @@ func (l *Lexer) peekChar() rune {
 	if l.readPosition >= len(l.input) {
 		return 0
 	}
-	return rune(l.input[l.readPosition])
+	ch, _ := utf8.DecodeRuneInString(l.input[l.readPosition:])
+	return ch
 }
+
+var throwKeyword = regexp.MustCompile("^WAA[A]*$")
