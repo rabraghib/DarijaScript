@@ -11,12 +11,12 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'DarijaScript',
-    url: 'https://darijascript.rabraghib.me',
+    url: 'https://ds.rabraghib.com/',
     title: 'DarijaScript Programming Language',
     description: 'The greatest language that ever was or will be!',
     images: [
       {
-        url: 'https://darijascript.rabraghib.me/meme.webp',
+        url: 'https://ds.rabraghib.com/meme.webp',
         width: 1280,
         height: 720,
         alt: 'DarijaScript Programming Language',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     description: 'The greatest language that ever was or will be!',
     images: [
       {
-        url: 'https://darijascript.rabraghib.me/meme.webp',
+        url: 'https://ds.rabraghib.com/meme.webp',
         width: 1280,
         height: 720,
         alt: 'DarijaScript Programming Language',
@@ -102,7 +102,7 @@ function Footer() {
       Made with <span className="text-red-600">&hearts;</span> by{' '}
       <a
         target="_blank"
-        href="https://rabraghib.me/"
+        href="https://rabraghib.com/"
         className="underline whitespace-nowrap"
       >
         Rabyâ Raghib

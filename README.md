@@ -47,7 +47,7 @@ Discover various DarijaScript code examples in the [examples](examples) folder.
 
 ## Documentation
 
-Try programs in the [DarijaScript Online Playground](https://darijascript.rabraghib.me).
+Try programs in the [DarijaScript Online Playground](https://ds.rabraghib.com/).
 
 ### Development
 
@@ -78,4 +78,4 @@ If you want to show some support, you can:
 
 ---
 
-<p align="center">Made with ❤️ by <a href="https://www.rabraghib.me">Rabyâ Raghib</a></p>
+<p align="center">Made with ❤️ by <a href="https://rabraghib.com/">Rabyâ Raghib</a></p>
