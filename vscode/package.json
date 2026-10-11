@@ -6,7 +6,8 @@
   "description": "DarijaScript highlighting, completions, syntax diagnostics, and formatting.",
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:darijascript"
+    "onLanguage:darijascript",
+    "onCommand:darijascript.openLanguageReference"
   ],
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -25,6 +26,13 @@
     "Programming Languages"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "darijascript.openLanguageReference",
+        "title": "Open Language Reference",
+        "category": "DarijaScript"
+      }
+    ],
     "configuration": {
       "title": "DarijaScript",
       "properties": {

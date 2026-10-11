@@ -59,6 +59,10 @@ function activate(context) {
   }
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('darijascript.openLanguageReference', () => {
+      const reference = vscode.Uri.file(path.join(context.extensionPath, 'LANGUAGE.md'));
+      return vscode.commands.executeCommand('markdown.showPreview', reference);
+    }),
     vscode.workspace.onDidOpenTextDocument(schedule),
     vscode.workspace.onDidChangeTextDocument(event => schedule(event.document)),
     vscode.workspace.onDidChangeConfiguration(event => {

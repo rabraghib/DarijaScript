@@ -1,81 +1,72 @@
-<img align="right" src="language-service/images/icon.png" alt="DarijaScript Logo" width="150" height="150">
+<img align="right" src="vscode/images/icon.png" alt="DarijaScript Logo" width="150" height="150">
 
 # DarijaScript
 
-DarijaScript is a programming language inspired by the Moroccan Arabic language.
+DarijaScript is an experimental programming language inspired by Moroccan Arabic, built for fun and learning.
 
 <br clear="right"/>
 
-## Note
-
-DarijaScript is not intended for serious projects or production use.
-It's a lighthearted experiment in language design and cultural expression.
-Have fun exploring and playing around with DarijaScript!
-
 ## Getting Started
 
-You can get started with DarijaScript by using the [DarijaScript Starter](https://github.com/rabraghib/darijascript-starter) template.
-
-### Installation
-
-To install DarijaScript, you need to have [Go](https://go.dev/) installed.
-After installing Go, you can use the following command to install DarijaScript:
+Install [Go](https://go.dev/), then install the CLI:
 
 ```bash
 go install github.com/rabraghib/darijascript@latest
 ```
 
-Make sure your Go bin directory is in your system's PATH.
-
-### Usage
-
-You can either write your DarijaScript code in a file and run it:
+Add your Go bin directory to `PATH`. Run a `.ds` file or start an interactive session:
 
 ```bash
 darijascript run my_program.ds
-```
-
-Or you can run DarijaScript in interactive mode:
-
-```bash
 darijascript interactive
 ```
 
-### Examples
+Check syntax and format files:
 
-Discover various DarijaScript code examples in the [examples](examples) folder.
+```bash
+darijascript check my_program.ds
+darijascript format --write my_program.ds
+```
 
-## Documentation
+- [Online playground](https://ds.rabraghib.com/)
+- [Language reference](vscode/LANGUAGE.md)
+- [Examples](examples)
 
-Try programs in the [DarijaScript Online Playground](https://ds.rabraghib.com/).
+The [VS Code extension](vscode) provides highlighting, completions, diagnostics, and formatting. It uses the CLI on `PATH`, or the executable configured in `darijascript.interpreterPath`.
 
-### Development
+Open the guide from the Command Palette with **DarijaScript: Open Language Reference**.
+
+## Development
 
 Run `go build .` to build the interpreter and CLI.
 
-The `justfile` targets Linux (or WSL). For the website, install Node.js 22 or newer, Go, and [just](https://just.systems), then run from the repository root:
+For the website, use Linux or WSL with Node.js 22+, Go, and [just](https://just.systems). From the repository root:
 
 ```sh
 npm --prefix website ci
-just dev
+just wasm
+npm --prefix website run dev
 ```
 
-The `just dev` and `just build-web` commands build the WASM binary and copy the unmodified `wasm_exec.js` from the same Go compiler. After changing Go code while the development server is running, run `just wasm` and reload the playground.
+After changing Go code, rerun `just wasm` and reload the playground. After editing examples, run `npm --prefix website run sync-examples`.
 
-Run `just build-web` to create a production website build. Deployment uses `npm run build` inside `website` with the WASM artifacts supplied by CI.
+Verify changes:
 
-CI runs `just build <tag>` to build the Windows, Linux, and macOS release binaries along with the playground WASM artifacts.
+```sh
+go test ./...
+npm --prefix website run typecheck
+npm --prefix website run lint
+```
+
+Use `just build-web` for a production website build, or `just build <tag>` for release binaries and playground WASM artifacts.
 
 ## 🤗 Before you go!
 
 Contributions are always welcome!
 
-If you want to show some support, you can:
-
-- Give [DarijaScript repo](https://github.com/rabraghib/darijascript) a star ⭐ on Github.
-- Follow [@rabraghib](https://twitter.com/rabraghib) on Twitter to stay up to date with all the cool stuff happening.
-- 💰 Help DarijaScript grow and be more awesome: [Buy me a coffee](https://www.buymeacoffee.com/rabraghib).
+- [Give the repo a star ⭐](https://github.com/rabraghib/darijascript).
+- Follow [@rabraghib](https://x.com/rabraghib) on X for updates.
 
 ---
 
-<p align="center">Made with ❤️ by <a href="https://rabraghib.com/">Rabyâ Raghib</a></p>
+<p align="center">Made with ❤️ by <a href="https://rabraghib.com/">Rabyâ RAGHIB</a></p>

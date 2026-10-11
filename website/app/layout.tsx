@@ -105,7 +105,7 @@ function Footer() {
         href="https://rabraghib.com/"
         className="underline whitespace-nowrap"
       >
-        Rabyâ Raghib
+        Rabyâ RAGHIB
       </a>
     </div>
   );

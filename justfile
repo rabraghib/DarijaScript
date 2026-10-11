@@ -15,10 +15,6 @@ wasm:
         if [ ! -f "$source" ]; then source="$root/misc/wasm/wasm_exec.js"; fi; \
         cp "$source" website/public/wasm_exec.js
 
-# Start the website with a freshly built interpreter.
-dev: wasm
-    npm --prefix website run dev
-
 # Build the website with a freshly built interpreter.
 build-web: wasm
     npm --prefix website run build
