@@ -19,7 +19,7 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("reading source file: %w", err)
 		}
 		eval := interpreter.NewEvaluatorWithIO(cmd.InOrStdin(), cmd.OutOrStdout())
-		_, err = runtime.Run(string(source), eval)
+		_, err = runtime.RunNamed(string(source), args[0], eval)
 		return err
 	},
 }

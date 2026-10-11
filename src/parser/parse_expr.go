@@ -24,7 +24,7 @@ func precedence(kind lexer.TokenType) int {
 		return 6
 	case lexer.TT_MULTIPLY, lexer.TT_DIVIDE, lexer.TT_MODULO:
 		return 7
-	case lexer.TT_LPAREN:
+	case lexer.TT_LPAREN, lexer.TT_LBRACKET, lexer.TT_DOT:
 		return 9
 	default:
 		return 0
@@ -44,12 +44,18 @@ func (p *Parser) parsePrecedence(min int) Expression {
 	for len(p.errors) == 0 && precedence(p.currentToken().Type) >= min {
 		token := p.consumeToken()
 		if token.Type == lexer.TT_LPAREN {
-			function, ok := left.(*Identifier)
-			if !ok {
-				p.addError("only named functions can be called", token)
-				return nil
-			}
-			left = p.parseCall(function, token)
+			left = p.parseCall(left, token)
+			continue
+		}
+		if token.Type == lexer.TT_LBRACKET {
+			index := p.parseExpression()
+			p.consumeTokenOfType(lexer.TT_RBRACKET)
+			left = &IndexExpression{Left: left, Index: index, Token: token}
+			continue
+		}
+		if token.Type == lexer.TT_DOT {
+			name := p.parseIdentifier()
+			left = &MemberExpression{Left: left, Name: name.Value, Token: token}
 			continue
 		}
 		next := precedence(token.Type) + 1
@@ -58,12 +64,13 @@ func (p *Parser) parsePrecedence(min int) Expression {
 		}
 		right := p.parsePrecedence(next)
 		if token.Type == lexer.TT_ASSIGN {
-			variable, ok := left.(*Identifier)
-			if !ok {
-				p.addError("assignment requires a variable", token)
+			switch left.(type) {
+			case *Identifier, *IndexExpression:
+			default:
+				p.addError("assignment requires a variable or collection index", token)
 				return nil
 			}
-			left = &AssignmentExpression{Variable: *variable, Value: right, Token: token}
+			left = &AssignmentExpression{Target: left, Value: right, Token: token}
 		} else {
 			left = &InfixExpression{Left: left, Operator: token.Literal, Right: right, Token: token}
 		}
@@ -87,6 +94,27 @@ func (p *Parser) parsePrefix() Expression {
 		return &StringLiteral{Value: token.Literal, Token: token}
 	case lexer.TT_TRUE, lexer.TT_FALSE:
 		return &BooleanLiteral{Value: token.Type == lexer.TT_TRUE, Token: token}
+	case lexer.TT_NULL:
+		return &NullLiteral{Token: token}
+	case lexer.TT_LBRACKET:
+		return &ArrayLiteral{Elements: p.parseArguments(lexer.TT_RBRACKET), Token: token}
+	case lexer.TT_LBRACE:
+		hash := &HashLiteral{Token: token}
+		for !p.checkToken(lexer.TT_RBRACE) && !p.isAtEnd() && len(p.errors) == 0 {
+			key := p.parseExpression()
+			p.consumeTokenOfType(lexer.TT_COLON)
+			value := p.parseExpression()
+			hash.Pairs = append(hash.Pairs, HashPair{Key: key, Value: value})
+			if !p.matchToken(lexer.TT_COMMA) {
+				break
+			}
+		}
+		p.consumeTokenOfType(lexer.TT_RBRACE)
+		return hash
+	case lexer.TT_FUNCTION:
+		p.consumeTokenOfType(lexer.TT_LPAREN)
+		parameters := p.parseFunctionParameters()
+		return &FunctionLiteral{Parameters: parameters, Body: p.parseFunctionBody(), Token: token}
 	case lexer.TT_PLUS, lexer.TT_MINUS, lexer.TT_NOT:
 		return &PrefixExpression{Operator: token.Literal, Right: p.parsePrecedence(8), Token: token}
 	case lexer.TT_LPAREN:
@@ -99,17 +127,21 @@ func (p *Parser) parsePrefix() Expression {
 	}
 }
 
-func (p *Parser) parseCall(function *Identifier, token *lexer.Token) Expression {
-	call := &CallExpression{Function: function, Token: token, Arguments: []Expression{}}
-	if p.matchToken(lexer.TT_RPAREN) {
-		return call
-	}
+func (p *Parser) parseCall(function Expression, token *lexer.Token) Expression {
+	return &CallExpression{Function: function, Token: token, Arguments: p.parseArguments(lexer.TT_RPAREN)}
+}
+
+func (p *Parser) parseArguments(closing lexer.TokenType) []Expression {
+	arguments := []Expression{}
 	for !p.isAtEnd() && len(p.errors) == 0 {
-		call.Arguments = append(call.Arguments, p.parseExpression())
+		if p.checkToken(closing) {
+			break
+		}
+		arguments = append(arguments, p.parseExpression())
 		if !p.matchToken(lexer.TT_COMMA) {
 			break
 		}
 	}
-	p.consumeTokenOfType(lexer.TT_RPAREN)
-	return call
+	p.consumeTokenOfType(closing)
+	return arguments
 }

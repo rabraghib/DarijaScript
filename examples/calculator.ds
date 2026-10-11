@@ -1,8 +1,8 @@
 golih("This is a simple calculator in DarijaScript");
 golih("");
 9ayed op = dakhel("What operation would you like to perform? (+, -, *, /): ");
-9ayed num1 = dakhel("Enter the first number: ");
-9ayed num2 = dakhel("Enter the second number: ");
+9ayed num1 = rdo3adad(dakhel("Enter the first number: "));
+9ayed num2 = rdo3adad(dakhel("Enter the second number: "));
 
 9ayed result = calculator(op, num1, num2);
 

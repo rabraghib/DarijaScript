@@ -3,6 +3,7 @@
 package entrypoint
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"syscall/js"
@@ -31,6 +32,23 @@ func (input *browserInput) Read(buffer []byte) (int, error) {
 }
 
 func Entrypoint() {
+	js.Global().Set("checkDarijaScript", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) != 1 || args[0].Type() != js.TypeString {
+			return "[]"
+		}
+		encoded, _ := json.Marshal(runtime.Check(args[0].String()))
+		return string(encoded)
+	}))
+	js.Global().Set("formatDarijaScript", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) != 1 || args[0].Type() != js.TypeString {
+			return map[string]interface{}{"ok": false, "error": "expected source text"}
+		}
+		formatted, err := runtime.Format(args[0].String())
+		if err != nil {
+			return map[string]interface{}{"ok": false, "error": err.Error()}
+		}
+		return map[string]interface{}{"ok": true, "source": formatted}
+	}))
 	var activeInput *browserInput
 	js.Global().Set("submitDarijaScriptInput", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if activeInput != nil && len(args) == 1 && args[0].Type() == js.TypeString {

@@ -67,6 +67,7 @@ type ReturnStatement struct {
 type ThrowStatement struct {
 	statementMarker
 	ReturnValue Expression
+	Token       *lexer.Token
 }
 
 type Identifier struct {
@@ -102,9 +103,9 @@ type PrefixExpression struct {
 
 type AssignmentExpression struct {
 	expressionMarker
-	Variable Identifier
-	Value    Expression
-	Token    *lexer.Token
+	Target Expression
+	Value  Expression
+	Token  *lexer.Token
 }
 
 type InfixExpression struct {
@@ -117,7 +118,7 @@ type InfixExpression struct {
 
 type CallExpression struct {
 	expressionMarker
-	Function  *Identifier
+	Function  Expression
 	Arguments []Expression
 	Token     *lexer.Token
 }
@@ -137,8 +138,48 @@ type IndexExpression struct {
 
 type HashLiteral struct {
 	expressionMarker
-	Pairs map[Expression]Expression
+	Pairs []HashPair
 	Token *lexer.Token
+}
+
+type HashPair struct{ Key, Value Expression }
+
+type NullLiteral struct {
+	expressionMarker
+	Token *lexer.Token
+}
+type MemberExpression struct {
+	expressionMarker
+	Left  Expression
+	Name  string
+	Token *lexer.Token
+}
+type FunctionLiteral struct {
+	expressionMarker
+	Parameters []*Identifier
+	Body       *BlockStatement
+	Token      *lexer.Token
+}
+type ForStatement struct {
+	statementMarker
+	Name       *Identifier
+	Collection Expression
+	Body       *BlockStatement
+	Token      *lexer.Token
+}
+type BreakStatement struct {
+	statementMarker
+	Token *lexer.Token
+}
+type ContinueStatement struct {
+	statementMarker
+	Token *lexer.Token
+}
+type TryStatement struct {
+	statementMarker
+	Body    *BlockStatement
+	Name    *Identifier
+	Handler *BlockStatement
 }
 
 type Error struct {

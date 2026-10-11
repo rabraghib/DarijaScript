@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -36,12 +37,30 @@ func (l *Lexer) readNumber() string {
 
 func (l *Lexer) readString() (string, error) {
 	l.readChar()
-	start := l.position
+	var value strings.Builder
 	for l.position < len(l.input) {
 		if l.ch == '"' {
-			value := l.input[start:l.position]
 			l.readChar()
-			return value, nil
+			return value.String(), nil
+		}
+		if l.ch == '\\' {
+			l.readChar()
+			switch l.ch {
+			case 'n':
+				value.WriteRune('\n')
+			case 'r':
+				value.WriteRune('\r')
+			case 't':
+				value.WriteRune('\t')
+			case '"', '\\':
+				value.WriteRune(l.ch)
+			case 0:
+				return "", fmt.Errorf("unterminated string")
+			default:
+				return "", fmt.Errorf("unknown string escape: \\%c", l.ch)
+			}
+		} else {
+			value.WriteRune(l.ch)
 		}
 		l.readChar()
 	}

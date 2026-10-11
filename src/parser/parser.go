@@ -7,10 +7,13 @@ import (
 )
 
 type Parser struct {
-	errors []Error
-	tokens []*lexer.Token
-	curPos int
-	depth  int
+	errors        []Error
+	tokens        []*lexer.Token
+	curPos        int
+	depth         int
+	loopDepth     int
+	functionDepth int
+	Incomplete    bool
 }
 
 func NewParser(tokens []*lexer.Token) *Parser {
@@ -85,7 +88,24 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseIfStatement(true)
 	case lexer.TT_WHILE:
 		return p.parseWhileStatement()
+	case lexer.TT_FOR:
+		return p.parseForStatement()
+	case lexer.TT_BREAK, lexer.TT_CONTINUE:
+		token := p.consumeToken()
+		if p.loopDepth == 0 {
+			p.addError("loop control is only valid inside a loop", token)
+		}
+		p.consumeTokenOfType(lexer.TT_SEMICOLON)
+		if token.Type == lexer.TT_BREAK {
+			return &BreakStatement{Token: token}
+		}
+		return &ContinueStatement{Token: token}
+	case lexer.TT_TRY:
+		return p.parseTryStatement()
 	case lexer.TT_FUNCTION:
+		if p.curPos+1 < len(p.tokens) && p.tokens[p.curPos+1].Type == lexer.TT_LPAREN {
+			return p.parseExpressionStatement()
+		}
 		return p.parseFunctionDeclaration()
 	case lexer.TT_RETURN:
 		return p.parseReturnStatement()
@@ -124,8 +144,36 @@ func (p *Parser) parseWhileStatement() *WhileStatement {
 	p.consumeToken() // consume TT_WHILE token
 	whileStatement := &WhileStatement{}
 	whileStatement.Condition = p.parseExpression()
+	p.loopDepth++
 	whileStatement.Consequence = p.parseBlockStatement()
+	p.loopDepth--
 	return whileStatement
+}
+
+func (p *Parser) parseForStatement() Statement {
+	token := p.consumeToken()
+	p.consumeTokenOfType(lexer.TT_LPAREN)
+	name := p.parseIdentifier()
+	in := p.consumeTokenOfType(lexer.TT_IDENTIFIER)
+	if in.Literal != "f" {
+		p.addError("expected f before collection", in)
+	}
+	collection := p.parseExpression()
+	p.consumeTokenOfType(lexer.TT_RPAREN)
+	p.loopDepth++
+	body := p.parseBlockStatement()
+	p.loopDepth--
+	return &ForStatement{Name: name, Collection: collection, Body: body, Token: token}
+}
+
+func (p *Parser) parseTryStatement() Statement {
+	p.consumeToken()
+	body := p.parseBlockStatement()
+	p.consumeTokenOfType(lexer.TT_CATCH)
+	p.consumeTokenOfType(lexer.TT_LPAREN)
+	name := p.parseIdentifier()
+	p.consumeTokenOfType(lexer.TT_RPAREN)
+	return &TryStatement{Body: body, Name: name, Handler: p.parseBlockStatement()}
 }
 
 func (p *Parser) parseBlockStatement() *BlockStatement {
@@ -156,12 +204,25 @@ func (p *Parser) parseFunctionDeclaration() *FunctionDeclaration {
 	functionDeclaration.Name = p.parseIdentifier()
 	p.consumeTokenOfType(lexer.TT_LPAREN)
 	functionDeclaration.Parameters = p.parseFunctionParameters()
-	functionDeclaration.Body = p.parseBlockStatement()
+	functionDeclaration.Body = p.parseFunctionBody()
 	return functionDeclaration
 }
 
+func (p *Parser) parseFunctionBody() *BlockStatement {
+	outerLoops := p.loopDepth
+	p.loopDepth = 0
+	p.functionDepth++
+	body := p.parseBlockStatement()
+	p.functionDepth--
+	p.loopDepth = outerLoops
+	return body
+}
+
 func (p *Parser) parseReturnStatement() *ReturnStatement {
-	p.consumeToken() // consume TT_RETURN token
+	token := p.consumeToken()
+	if p.functionDepth == 0 {
+		p.addError("rjje3 is only valid inside a function", token)
+	}
 	returnStatement := &ReturnStatement{}
 	if !p.checkToken(lexer.TT_SEMICOLON) {
 		returnStatement.ReturnValue = p.parseExpression()
@@ -171,8 +232,8 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 }
 
 func (p *Parser) parseThrowStatement() Statement {
-	p.consumeToken() // consume TT_THROW token
-	throwStatement := &ThrowStatement{}
+	token := p.consumeToken()
+	throwStatement := &ThrowStatement{Token: token}
 	throwStatement.ReturnValue = p.parseExpression()
 	p.consumeTokenOfType(lexer.TT_SEMICOLON)
 	return throwStatement
@@ -229,10 +290,7 @@ func (p *Parser) consumeToken() *lexer.Token {
 func (p *Parser) consumeTokenOfType(tokenType lexer.TokenType) *lexer.Token {
 	token := p.consumeToken()
 	if token.Type != tokenType {
-		p.errors = append(p.errors, Error{
-			Message: fmt.Sprintf("Expected token of type %s, got %s", tokenType, token.Type),
-			Pos:     token.Pos,
-		})
+		p.addError(fmt.Sprintf("Expected token of type %s, got %s", tokenType, token.Type), token)
 		return token
 	}
 	return token
@@ -251,5 +309,8 @@ func (p *Parser) checkToken(tokenType lexer.TokenType) bool {
 }
 
 func (p *Parser) addError(message string, token *lexer.Token) {
+	if len(p.errors) == 0 {
+		p.Incomplete = token.Type == lexer.TT_EOF
+	}
 	p.errors = append(p.errors, Error{Message: message, Pos: token.Pos})
 }

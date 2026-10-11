@@ -53,14 +53,10 @@ golih("Total = " + total);
 9ayed smiya = dakhel("Daba smiytk: ");
 golih("Salam, " + smiya + "!");
 
-/*
-Should I add these?
-
 # Lists/Arrays
 9ayed al3dad = [1, 2, 3, 4, 5];
-golih(al3dad[2]);  # ayrd 3
+golih(al3dad[2]);  # prints 3
 
 # Dictionary/Map
 9ayed shakhs = {"ism": "Fatima", "3omr": 25};
-golih(shakhs["ism"]);  # ayrd "Fatima"
-*/
+golih(shakhs["ism"]);  # prints Fatima

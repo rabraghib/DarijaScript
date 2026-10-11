@@ -3,8 +3,6 @@ package interpreter
 import (
 	"fmt"
 	"math"
-	"reflect"
-	"strconv"
 
 	"github.com/rabraghib/darijascript/src/parser"
 )
@@ -22,6 +20,9 @@ func (eval *Evaluator) evaluateExpression(expression parser.Expression) (value i
 	case *parser.Identifier:
 		val, ok := eval.env.Get(expr.Value)
 		if !ok {
+			if _, exists := builtinNames[expr.Value]; exists {
+				return builtinValue(expr.Value), nil
+			}
 			return nil, fmt.Errorf("identifier not found: %s", expr.Value)
 		}
 		return val, nil
@@ -31,6 +32,53 @@ func (eval *Evaluator) evaluateExpression(expression parser.Expression) (value i
 		return expr.Value, nil
 	case *parser.BooleanLiteral:
 		return expr.Value, nil
+	case *parser.NullLiteral:
+		return nil, nil
+	case *parser.ArrayLiteral:
+		if len(expr.Elements) > 1_000_000 {
+			return nil, fmt.Errorf("maximum list length exceeded")
+		}
+		items, err := eval.evaluateArguments(expr.Elements)
+		return &listValue{Items: items}, err
+	case *parser.HashLiteral:
+		dict := map[string]interface{}{}
+		for _, pair := range expr.Pairs {
+			key, err := eval.evaluateExpression(pair.Key)
+			if err != nil {
+				return nil, err
+			}
+			text, ok := key.(string)
+			if !ok {
+				return nil, fmt.Errorf("dictionary keys must be strings")
+			}
+			value, err := eval.evaluateExpression(pair.Value)
+			if err != nil {
+				return nil, err
+			}
+			dict[text] = value
+		}
+		return dict, nil
+	case *parser.IndexExpression:
+		left, err := eval.evaluateExpression(expr.Left)
+		if err != nil {
+			return nil, err
+		}
+		index, err := eval.evaluateExpression(expr.Index)
+		if err != nil {
+			return nil, err
+		}
+		return indexValue(left, index)
+	case *parser.MemberExpression:
+		left, err := eval.evaluateExpression(expr.Left)
+		if err != nil {
+			return nil, err
+		}
+		if !hasMethod(left, expr.Name) {
+			return nil, fmt.Errorf("unknown method %s for %s", expr.Name, valueType(left))
+		}
+		return &methodValue{Receiver: left, Name: expr.Name}, nil
+	case *parser.FunctionLiteral:
+		return &functionValue{Name: "<anonymous>", Parameters: expr.Parameters, Body: expr.Body, Env: eval.env}, nil
 	case *parser.PrefixExpression:
 		rightValue, err := eval.evaluateExpression(expr.Right)
 		if err != nil {
@@ -38,11 +86,28 @@ func (eval *Evaluator) evaluateExpression(expression parser.Expression) (value i
 		}
 		return eval.evaluatePrefixExpression(expr.Operator, rightValue)
 	case *parser.AssignmentExpression:
+		// Resolve an indexed target once, before evaluating the right-hand side.
+		var collection, index interface{}
+		if target, ok := expr.Target.(*parser.IndexExpression); ok {
+			collection, err = eval.evaluateExpression(target.Left)
+			if err != nil {
+				return nil, err
+			}
+			index, err = eval.evaluateExpression(target.Index)
+			if err != nil {
+				return nil, err
+			}
+		}
 		value, err := eval.evaluateExpression(expr.Value)
 		if err != nil {
 			return nil, err
 		}
-		if err := eval.env.Update(expr.Variable.Value, value); err != nil {
+		if target, ok := expr.Target.(*parser.Identifier); ok {
+			err = eval.env.Update(target.Value, value)
+		} else {
+			err = assignIndex(collection, index, value)
+		}
+		if err != nil {
 			return nil, err
 		}
 		return value, nil
@@ -99,17 +164,17 @@ func (eval *Evaluator) evaluatePrefixExpression(operator string, rightValue inte
 func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interface{}, rightValue interface{}) (interface{}, error) {
 	switch operator {
 	case "+":
-		left, err1 := toNumber(leftValue)
-		right, err2 := toNumber(rightValue)
-		if err1 == nil && err2 == nil {
-			return left + right, nil
+		_, leftString := leftValue.(string)
+		_, rightString := rightValue.(string)
+		if leftString || rightString {
+			return displayValue(leftValue) + displayValue(rightValue), nil
 		}
-		leftStr, err1 := convertToString(leftValue)
-		rightStr, err2 := convertToString(rightValue)
-		if err1 != nil || err2 != nil {
-			return nil, fmt.Errorf("unsupported infix operator: %s %s %s", leftValue, operator, rightValue)
+		left, err := toNumber(leftValue)
+		if err != nil {
+			return nil, err
 		}
-		return leftStr + rightStr, nil
+		right, err := toNumber(rightValue)
+		return left + right, err
 	case "-":
 		left, err := toNumber(leftValue)
 		if err != nil {
@@ -200,9 +265,9 @@ func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interf
 		}
 		return left >= right, nil
 	case "==":
-		return reflect.DeepEqual(leftValue, rightValue), nil
+		return equalValues(leftValue, rightValue), nil
 	case "!=":
-		return !reflect.DeepEqual(leftValue, rightValue), nil
+		return !equalValues(leftValue, rightValue), nil
 	case "&&":
 		left, err := toBool(leftValue)
 		if err != nil {
@@ -228,28 +293,50 @@ func (eval *Evaluator) evaluateInfixExpression(operator string, leftValue interf
 	}
 }
 
-func (eval *Evaluator) evaluateCallExpression(callExpression *parser.CallExpression) (interface{}, error) {
-	function, ok, err := eval.env.GetFunction(callExpression.Function.Value)
+func (eval *Evaluator) evaluateCallExpression(call *parser.CallExpression) (value interface{}, err error) {
+	callee, err := eval.evaluateExpression(call.Function)
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return eval.evaluateBuiltinFunctionCall(callExpression)
+	arguments, err := eval.evaluateArguments(call.Arguments)
+	if err != nil {
+		return nil, err
 	}
-	if len(function.Parameters) != len(callExpression.Arguments) {
-		return nil, fmt.Errorf("wrong number of arguments: expected %d, got %d", len(function.Parameters), len(callExpression.Arguments))
+	switch fn := callee.(type) {
+	case builtinValue:
+		return eval.callBuiltin(string(fn), arguments)
+	case *methodValue:
+		return callMethod(fn.Receiver, fn.Name, arguments)
+	case *functionValue:
+		defer func() { err = callError(err, fn.Name, call.Token) }()
+		if len(fn.Parameters) != len(arguments) {
+			return nil, fmt.Errorf("wrong number of arguments: expected %d, got %d", len(fn.Parameters), len(arguments))
+		}
+		outer := eval.env
+		eval.env = NewEnclosedEnvironment(fn.Env)
+		defer func() { eval.env = outer }()
+		for i, parameter := range fn.Parameters {
+			if err := eval.env.Set(parameter.Value, arguments[i]); err != nil {
+				return nil, err
+			}
+		}
+		value, err := eval.EvaluateStatements(fn.Body.Statements)
+		return unwrapReturn(value), err
+	default:
+		return nil, fmt.Errorf("cannot call %s", valueType(callee))
 	}
+}
 
-	extraParams := map[string]interface{}{}
-	for i, argument := range callExpression.Arguments {
+func (eval *Evaluator) evaluateArguments(arguments []parser.Expression) ([]interface{}, error) {
+	values := make([]interface{}, len(arguments))
+	for i, argument := range arguments {
 		value, err := eval.evaluateExpression(argument)
 		if err != nil {
 			return nil, err
 		}
-		extraParams[function.Parameters[i].Value] = value
+		values[i] = value
 	}
-	value, err := eval.evaluateBlockStatementExtended(function.Body, extraParams)
-	return unwrapReturn(value), err
+	return values, nil
 }
 
 func toBool(value interface{}) (bool, error) {
@@ -275,8 +362,6 @@ func toNumber(value interface{}) (float64, error) {
 		return float64(v), nil
 	case float64:
 		return v, nil
-	case string:
-		return strconv.ParseFloat(v, 64)
 	default:
 		return 0, fmt.Errorf("unsupported type for number conversion: %T", value)
 	}

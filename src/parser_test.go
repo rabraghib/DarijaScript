@@ -177,7 +177,7 @@ func checkIdentifier(t *testing.T, expression *parser.Identifier, expected *pars
 }
 
 func checkCallExpression(t *testing.T, expression *parser.CallExpression, expected *parser.CallExpression) {
-	checkIdentifier(t, expression.Function, expected.Function)
+	checkExpression(t, expression.Function, expected.Function)
 	if len(expression.Arguments) != len(expected.Arguments) {
 		t.Fatalf("Expected %d arguments, got %d", len(expected.Arguments), len(expression.Arguments))
 	}

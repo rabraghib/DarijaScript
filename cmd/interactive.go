@@ -20,20 +20,30 @@ var interactiveCmd = &cobra.Command{
 		reader := bufio.NewReader(cmd.InOrStdin())
 		eval := interpreter.NewEvaluatorWithIO(reader, output)
 		fmt.Fprintln(output, "Welcome to the DarijaScript interpreter!\n\nType 'exit' to exit the interpreter.")
+		source := ""
 		for {
-			fmt.Fprint(output, ">>> ")
+			if source == "" {
+				fmt.Fprint(output, ">>> ")
+			} else {
+				fmt.Fprint(output, "... ")
+			}
 			line, readErr := reader.ReadString('\n')
 			if readErr != nil && readErr != io.EOF {
 				return readErr
 			}
 			line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
-			if line == "exit" {
+			if line == "exit" && source == "" {
 				break
 			}
-			if strings.TrimSpace(line) != "" {
-				if _, err := runtime.Run(line, eval); err != nil {
+			if strings.TrimSpace(line) != "" || source != "" {
+				source += line + "\n"
+				if readErr != io.EOF && runtime.Incomplete(source) {
+					continue
+				}
+				if _, err := runtime.Run(source, eval); err != nil {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Error:", err)
 				}
+				source = ""
 			}
 			if readErr == io.EOF {
 				break

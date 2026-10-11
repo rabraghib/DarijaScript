@@ -4,66 +4,37 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"reflect"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/rabraghib/darijascript/src/parser"
+	"unicode/utf8"
 )
 
-func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallExpression) (interface{}, error) {
-	switch callExpression.Function.Value {
-	case "n3ess":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf("n3ess() takes exactly 1 argument, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		num, err := convertToInt64(arg)
-		if err != nil {
-			return nil, err
-		}
-		time.Sleep(time.Duration(num) * time.Millisecond)
-		return nil, nil
-	case "abs":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf("abs() takes exactly 1 argument, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		num, err := convertToInt64(arg)
-		if err != nil {
-			return nil, err
-		}
-		if num < 0 {
-			return -num, nil
-		}
-		return num, nil
+type builtinValue string
+
+// Bounds are argument counts; -1 means there is no upper bound.
+var builtinNames = map[string][2]int{
+	"golih": {1, 1}, "dakhel": {0, 1}, "n3ess": {1, 1},
+	"rdo3adad": {1, 1}, "rdoBooleen": {1, 1}, "rdoString": {1, 1},
+	"len": {1, 1}, "infini": {0, 0}, "toLetter": {1, 1},
+	"abs": {1, 1}, "sqrt": {1, 1}, "pow": {2, 2},
+	"floor": {1, 1}, "ceil": {1, 1}, "round": {1, 1},
+	"min": {1, -1}, "max": {1, -1}, "random": {0, 0},
+}
+
+func (eval *Evaluator) callBuiltin(name string, args []interface{}) (interface{}, error) {
+	bounds := builtinNames[name]
+	if len(args) < bounds[0] || (bounds[1] >= 0 && len(args) > bounds[1]) {
+		return nil, fmt.Errorf("wrong number of arguments to %s: got %d", name, len(args))
+	}
+	switch name {
 	case "golih":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf("golih() takes exactly 1 argument, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		_, err = fmt.Fprintln(eval.output, displayValue(arg))
+		_, err := fmt.Fprintln(eval.output, displayValue(args[0]))
 		return nil, err
 	case "dakhel":
-		if len(callExpression.Arguments) > 1 {
-			return nil, fmt.Errorf("dakhel() takes at most 1 argument, %d given", len(callExpression.Arguments))
-		}
-		if len(callExpression.Arguments) == 1 {
-			message, err := eval.evaluateExpression(callExpression.Arguments[0])
-			if err != nil {
-				return nil, err
-			}
-			if _, err := fmt.Fprint(eval.output, displayValue(message)); err != nil {
+		if len(args) == 1 {
+			if _, err := fmt.Fprint(eval.output, displayValue(args[0])); err != nil {
 				return nil, err
 			}
 		}
@@ -72,176 +43,101 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 			return nil, err
 		}
 		return strings.TrimSuffix(strings.TrimSuffix(input, "\n"), "\r"), nil
-	case "rdo3adad", "rdoBooleen", "rdoString":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf(
-				"%s() takes exactly 1 argument, %d given",
-				callExpression.Function.Value,
-				len(callExpression.Arguments),
-			)
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		if callExpression.Function.Value == "rdo3adad" {
-			return convertToInt64(arg)
-		}
-		if callExpression.Function.Value == "rdoBooleen" {
-			return convertToBool(arg)
-		}
-		return convertToString(arg)
-	case "c", "r", "l":
-		list := make([]interface{}, len(callExpression.Arguments))
-		for i, argument := range callExpression.Arguments {
-			value, err := eval.evaluateExpression(argument)
-			if err != nil {
-				return nil, err
-			}
-			list[i] = value
-		}
-		return list, nil
-	case "infini":
-		if len(callExpression.Arguments) != 0 {
-			return nil, fmt.Errorf("infini() takes exactly 0 arguments, %d given", len(callExpression.Arguments))
-		}
-		return math.Inf(1), nil
+	case "rdo3adad":
+		return convertToNumber(args[0])
+	case "rdoBooleen":
+		return convertToBool(args[0])
+	case "rdoString":
+		return displayValue(args[0]), nil
 	case "len":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf("len() takes exactly 1 argument, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		switch v := arg.(type) {
-		case []interface{}:
-			return float64(len(v)), nil
-		case string:
-			return float64(len(v)), nil
+		switch value := args[0].(type) {
+		case *listValue:
+			return float64(len(value.Items)), nil
 		case map[string]interface{}:
-			return float64(len(v)), nil
+			return float64(len(value)), nil
+		case string:
+			return float64(utf8.RuneCountInString(value)), nil
 		default:
-			return nil, fmt.Errorf("unsupported type for len(): %T", arg)
+			return nil, fmt.Errorf("len requires a list, dictionary, or string")
 		}
-	case "dirRow", "dirCol":
-		if len(callExpression.Arguments) != 2 {
-			return nil, fmt.Errorf("%s() takes exactly 2 arguments, %d given", callExpression.Function.Value, len(callExpression.Arguments))
-		}
-		n, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		value, err := eval.evaluateExpression(callExpression.Arguments[1])
-		if err != nil {
-			return nil, err
-		}
-		num, err := integer(n, 1_000_000)
-		if err != nil {
-			return nil, err
-		}
-		row := make([]interface{}, num)
-		for i := range row {
-			row[i] = value
-		}
-		return row, nil
+	case "infini":
+		return math.Inf(1), nil
+	case "random":
+		return rand.Float64(), nil
 	case "toLetter":
-		if len(callExpression.Arguments) != 1 {
-			return nil, fmt.Errorf("toLetter() takes exactly 1 argument, %d given", len(callExpression.Arguments))
-		}
-		n, err := eval.evaluateExpression(callExpression.Arguments[0])
+		index, err := integer(args[0], 25)
 		if err != nil {
 			return nil, err
 		}
-		num, err := integer(n, 25)
+		return string(rune('A' + index)), nil
+	case "n3ess":
+		milliseconds, err := integer(args[0], 86_400_000)
 		if err != nil {
 			return nil, err
 		}
-		return string(rune('A' + num)), nil
-	case "ara":
-		if len(callExpression.Arguments) < 2 {
-			return nil, fmt.Errorf("ara() takes at least 2 arguments, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		current := arg
-		for i := 1; i < len(callExpression.Arguments); i++ {
-			indexArg, err := eval.evaluateExpression(callExpression.Arguments[i])
-			if err != nil {
-				return nil, err
-			}
-			switch v := current.(type) {
-			case []interface{}:
-				index, err := integer(indexArg, len(v)-1)
-				if err != nil {
-					return nil, err
-				}
-				current = v[index]
-
-			default:
-				return nil, fmt.Errorf("unexpected type at level %d; expected []interface{}", i)
-			}
-		}
-
-		// `current` now contains the final accessed element
-		return current, nil
-	case "atih":
-		// atih(array, index, value)
-		// atih(matrix, row, col, value)
-		if len(callExpression.Arguments) < 3 {
-			return nil, fmt.Errorf("atih() takes at least 3 arguments, %d given", len(callExpression.Arguments))
-		}
-		arg, err := eval.evaluateExpression(callExpression.Arguments[0])
-		if err != nil {
-			return nil, err
-		}
-		current := arg
-		for i := 1; i < len(callExpression.Arguments)-1; i++ {
-			values, ok := current.([]interface{})
-			if !ok {
-				return nil, fmt.Errorf("expected list at index level %d", i)
-			}
-			indexArg, err := eval.evaluateExpression(callExpression.Arguments[i])
-			if err != nil {
-				return nil, err
-			}
-			index, err := integer(indexArg, len(values)-1)
-			if err != nil {
-				return nil, err
-			}
-			if i == len(callExpression.Arguments)-2 {
-				value, err := eval.evaluateExpression(callExpression.Arguments[i+1])
-				if err != nil {
-					return nil, err
-				}
-				values[index] = value
-				return nil, nil
-			}
-			current = values[index]
-		}
+		time.Sleep(time.Duration(milliseconds) * time.Millisecond)
 		return nil, nil
-	default:
-		return nil, fmt.Errorf("function not found: %s", callExpression.Function.Value)
 	}
+	numbers := make([]float64, len(args))
+	for i, arg := range args {
+		number, err := toNumber(arg)
+		if err != nil {
+			return nil, err
+		}
+		if math.IsNaN(number) || math.IsInf(number, 0) {
+			return nil, fmt.Errorf("%s requires finite numbers", name)
+		}
+		numbers[i] = number
+	}
+	var result float64
+	switch name {
+	case "abs":
+		result = math.Abs(numbers[0])
+	case "floor":
+		result = math.Floor(numbers[0])
+	case "ceil":
+		result = math.Ceil(numbers[0])
+	case "round":
+		result = math.Round(numbers[0])
+	case "sqrt":
+		result = math.Sqrt(numbers[0])
+	case "pow":
+		result = math.Pow(numbers[0], numbers[1])
+	case "min", "max":
+		result = numbers[0]
+		for _, number := range numbers[1:] {
+			if name == "min" {
+				result = math.Min(result, number)
+			} else {
+				result = math.Max(result, number)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("function not found: %s", name)
+	}
+	if math.IsNaN(result) || math.IsInf(result, 0) {
+		return nil, fmt.Errorf("%s result is outside the finite numeric domain", name)
+	}
+	return result, nil
 }
 
-func convertToInt64(value interface{}) (float64, error) {
+func convertToNumber(value interface{}) (float64, error) {
 	switch v := value.(type) {
 	case float64:
 		return v, nil
-	case int:
-		return float64(v), nil
 	case bool:
 		if v {
 			return 1, nil
 		}
 		return 0, nil
 	case string:
-		return strconv.ParseFloat(v, 64)
+		n, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		if err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
+			return 0, fmt.Errorf("cannot convert %q to a finite number", v)
+		}
+		return n, nil
 	default:
-		return 0, fmt.Errorf("unsupported type for integer conversion: %T", value)
+		return 0, fmt.Errorf("cannot convert %s to a number", valueType(value))
 	}
 }
 
@@ -252,37 +148,20 @@ func convertToBool(value interface{}) (bool, error) {
 	case float64:
 		return v != 0, nil
 	case string:
-		if v == "s7i7" || v == "S7I7" {
+		switch strings.ToLower(v) {
+		case "s7i7", "true":
 			return true, nil
-		}
-		if v == "ghalt" || v == "GHALT" {
+		case "ghalt", "false":
 			return false, nil
 		}
-		return strconv.ParseBool(v)
+		return false, fmt.Errorf("cannot convert %q to a boolean", v)
 	default:
-		return false, fmt.Errorf("unsupported type for boolean conversion: %T", value)
-	}
-}
-
-func convertToString(value interface{}) (string, error) {
-	switch v := value.(type) {
-	case bool:
-		if v {
-			return "s7i7", nil
-		}
-		return "ghalt", nil
-	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64), nil
-	case string:
-		return v, nil
-	default:
-		return displayValue(value), nil
-		// return "", fmt.Errorf("unsupported type for string conversion: %T", value)
+		return false, fmt.Errorf("cannot convert %s to a boolean", valueType(value))
 	}
 }
 
 func integer(value interface{}, max int) (int, error) {
-	n, err := convertToInt64(value)
+	n, err := toNumber(value)
 	if err != nil {
 		return 0, err
 	}
@@ -290,30 +169,4 @@ func integer(value interface{}, max int) (int, error) {
 		return 0, fmt.Errorf("expected an integer in range 0..%d, got %v", max, n)
 	}
 	return int(n), nil
-}
-
-// atih() can create self-referencing lists; format them without infinite recursion.
-func displayValue(value interface{}) string { return formatValue(value, map[uintptr]bool{}) }
-
-func formatValue(value interface{}, visiting map[uintptr]bool) string {
-	values, ok := value.([]interface{})
-	if !ok {
-		return fmt.Sprint(value)
-	}
-	key := reflect.ValueOf(values).Pointer()
-	if visiting[key] {
-		return "<cycle>"
-	}
-	visiting[key] = true
-	defer delete(visiting, key)
-	var text strings.Builder
-	text.WriteByte('[')
-	for i, item := range values {
-		if i > 0 {
-			text.WriteByte(' ')
-		}
-		text.WriteString(formatValue(item, visiting))
-	}
-	text.WriteByte(']')
-	return text.String()
 }

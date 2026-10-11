@@ -46,6 +46,13 @@ const (
 	TT_COLON
 	TT_SEMICOLON
 	TT_EOF
+	TT_NULL
+	TT_FOR
+	TT_BREAK
+	TT_CONTINUE
+	TT_TRY
+	TT_CATCH
+	TT_DOT
 )
 
 type Position struct {
@@ -146,6 +153,20 @@ func (t TokenType) String() string {
 		return "TT_SEMICOLON"
 	case TT_EOF:
 		return "TT_EOF"
+	case TT_NULL:
+		return "walo"
+	case TT_FOR:
+		return "kol"
+	case TT_BREAK:
+		return "w9ef"
+	case TT_CONTINUE:
+		return "kmmel"
+	case TT_TRY:
+		return "jerreb"
+	case TT_CATCH:
+		return "ched"
+	case TT_DOT:
+		return "."
 	default:
 		return "Unknown"
 	}

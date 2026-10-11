@@ -44,13 +44,15 @@ func (l *Lexer) NextToken() (*Token, error) {
 	var position = Position{l.line, l.column}
 
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
+		prefix := "#"
 		if l.ch == '/' {
+			prefix = "//"
 			l.readChar()
 			l.readChar()
 		} else {
 			l.readChar()
 		}
-		return newToken(TT_COMMENT, l.readComment(), position), nil
+		return newToken(TT_COMMENT, prefix+l.readComment(), position), nil
 	}
 
 	if l.ch == '/' && l.peekChar() == '*' {
@@ -60,7 +62,7 @@ func (l *Lexer) NextToken() (*Token, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w at %d:%d", err, position.Line, position.Column)
 		}
-		return newToken(TT_COMMENT, literal, position), nil
+		return newToken(TT_COMMENT, "/*"+literal+"*/", position), nil
 	}
 
 	if l.ch == '"' {
@@ -87,6 +89,18 @@ func (l *Lexer) NextToken() (*Token, error) {
 		var identifier = l.readIdentifier()
 
 		switch identifier {
+		case "walo":
+			return newToken(TT_NULL, identifier, position), nil
+		case "kol":
+			return newToken(TT_FOR, identifier, position), nil
+		case "w9ef":
+			return newToken(TT_BREAK, identifier, position), nil
+		case "kmmel":
+			return newToken(TT_CONTINUE, identifier, position), nil
+		case "jerreb":
+			return newToken(TT_TRY, identifier, position), nil
+		case "ched":
+			return newToken(TT_CATCH, identifier, position), nil
 		case "ilakan":
 			return newToken(TT_IF, identifier, position), nil
 		case "ilamakanch":
@@ -112,6 +126,9 @@ func (l *Lexer) NextToken() (*Token, error) {
 	}
 
 	switch l.ch {
+	case '.':
+		l.readChar()
+		return newToken(TT_DOT, ".", position), nil
 	case '+':
 		l.readChar()
 		return newToken(TT_PLUS, "+", position), nil

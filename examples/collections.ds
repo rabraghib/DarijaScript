@@ -1,0 +1,33 @@
+# Collections, Unicode strings, closures, and recoverable errors.
+9ayed shakhs = {"ism": "Fatima", "3omr": 25};
+shakhs["mdina"] = "Rabat";
+golih(shakhs.keys());
+
+9ayed scores = [10, 15, 20];
+scores.append(25);
+9ayed total = 0;
+kol (score f scores) {
+    ilakan (score == 15) { kmmel; }
+    total = total + score;
+}
+golih("Total: " + total);
+golih(scores.slice(1, 3));
+
+golih("سلام".split("").join(" | "));
+golih("Characters: " + len("سلام"));
+
+fonksyon counter() {
+    9ayed n = 0;
+    rjje3 fonksyon() { n = n + 1; rjje3 n; };
+}
+9ayed next = counter();
+golih(next());
+golih(next());
+
+jerreb {
+    rdo3adad("not a number");
+} ched (err) {
+    golih("Recovered: " + err);
+}
+golih("Square root: " + sqrt(9));
+golih(shakhs["missing"] == walo);

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 
 	"github.com/rabraghib/darijascript/src/parser"
 )
@@ -31,15 +30,15 @@ func (eval *Evaluator) EvaluateProgram(program *parser.Program) (interface{}, er
 }
 
 func (eval *Evaluator) EvaluateStatements(statements []parser.Statement) (interface{}, error) {
-	sort.SliceStable(statements, func(i, j int) bool {
-		switch statements[i].(type) {
-		case *parser.FunctionDeclaration:
-			_, isFnDeclJ := statements[j].(*parser.FunctionDeclaration)
-			return !isFnDeclJ
-		default:
-			return false
+	// Hoist named functions without mutating the syntax tree. Each captures this scope.
+	for _, statement := range statements {
+		if fn, ok := statement.(*parser.FunctionDeclaration); ok {
+			value := &functionValue{Name: fn.Name.Value, Parameters: fn.Parameters, Body: fn.Body, Env: eval.env}
+			if err := eval.env.Set(fn.Name.Value, value); err != nil {
+				return nil, atToken(err, fn.Name.Token)
+			}
 		}
-	})
+	}
 	for _, statement := range statements {
 		val, err := eval.evaluateStatement(statement)
 		if err != nil {
@@ -63,8 +62,41 @@ func (eval *Evaluator) evaluateStatement(statement parser.Statement) (interface{
 		_, err := eval.evaluateExpression(stmt.Expression)
 		return nil, err
 	case *parser.FunctionDeclaration:
-		eval.env.SetFunction(stmt.Name.Value, stmt)
 		return nil, nil
+	case *parser.BreakStatement:
+		return breakSignal{}, nil
+	case *parser.ContinueStatement:
+		return continueSignal{}, nil
+	case *parser.TryStatement:
+		value, err := eval.evaluateBlockStatement(stmt.Body)
+		if err == nil {
+			return value, nil
+		}
+		return eval.evaluateBlockStatementExtended(stmt.Handler, map[string]interface{}{stmt.Name.Value: err.Error()})
+	case *parser.ForStatement:
+		collection, err := eval.evaluateExpression(stmt.Collection)
+		if err != nil {
+			return nil, err
+		}
+		items, err := iterationValues(collection)
+		if err != nil {
+			return nil, atToken(err, stmt.Token)
+		}
+		for _, item := range items {
+			value, err := eval.evaluateBlockStatementExtended(stmt.Body, map[string]interface{}{stmt.Name.Value: item})
+			if err != nil {
+				return nil, err
+			}
+			switch value.(type) {
+			case breakSignal:
+				return nil, nil
+			case continueSignal:
+				continue
+			}
+			if value != nil {
+				return value, nil
+			}
+		}
 	case *parser.IfStatement:
 		condition, err := eval.evaluateBoolExpression(stmt.Condition)
 		if err != nil {
@@ -85,6 +117,15 @@ func (eval *Evaluator) evaluateStatement(statement parser.Statement) (interface{
 				break
 			}
 			val, err := eval.evaluateBlockStatement(stmt.Consequence)
+			switch val.(type) {
+			case breakSignal:
+				return nil, err
+			case continueSignal:
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if err != nil || val != nil {
 				return val, err
 			}
@@ -102,7 +143,7 @@ func (eval *Evaluator) evaluateStatement(statement parser.Statement) (interface{
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("WAAAAAAA: %s", displayValue(val))
+		return nil, atToken(fmt.Errorf("WAAAAAAA: %s", displayValue(val)), stmt.Token)
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", statement)
 	}
@@ -116,7 +157,7 @@ func (eval *Evaluator) evaluateBoolExpression(expression parser.Expression) (*bo
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("expression must evaluate to a boolean")
+		return nil, atToken(fmt.Errorf("expression must evaluate to a boolean"), expressionToken(expression))
 	}
 	return &expressionValue, nil
 }
@@ -147,6 +188,8 @@ func (eval *Evaluator) evaluateBlockStatementExtended(block *parser.BlockStateme
 }
 
 type returnSignal struct{ value interface{} }
+type breakSignal struct{}
+type continueSignal struct{}
 
 func unwrapReturn(value interface{}) interface{} {
 	if signal, ok := value.(*returnSignal); ok {
