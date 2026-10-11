@@ -17,7 +17,7 @@ type builtinValue string
 var builtinNames = map[string][2]int{
 	"golih": {1, 1}, "dakhel": {0, 1}, "n3ess": {1, 1},
 	"rdo3adad": {1, 1}, "rdoBooleen": {1, 1}, "rdoString": {1, 1},
-	"len": {1, 1}, "infini": {0, 0}, "toLetter": {1, 1},
+	"len": {1, 1}, "infini": {0, 0}, "rdoChar": {1, 1},
 	"abs": {1, 1}, "sqrt": {1, 1}, "pow": {2, 2},
 	"floor": {1, 1}, "ceil": {1, 1}, "round": {1, 1},
 	"min": {1, -1}, "max": {1, -1}, "random": {0, 0},
@@ -64,7 +64,7 @@ func (eval *Evaluator) callBuiltin(name string, args []interface{}) (interface{}
 		return math.Inf(1), nil
 	case "random":
 		return rand.Float64(), nil
-	case "toLetter":
+	case "rdoChar":
 		index, err := integer(args[0], 25)
 		if err != nil {
 			return nil, err

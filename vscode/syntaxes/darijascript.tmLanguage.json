@@ -36,7 +36,7 @@
           "name": "constant.language.darijascript"
         },
         {
-          "match": "(?<![\\p{L}\\p{M}0-9_])(?:golih|dakhel|rdo3adad|rdoBooleen|rdoString|len|n3ess|infini|toLetter|abs|sqrt|pow|floor|ceil|round|min|max|random)(?![\\p{L}\\p{M}0-9_])",
+          "match": "(?<![\\p{L}\\p{M}0-9_])(?:golih|dakhel|rdo3adad|rdoBooleen|rdoString|len|n3ess|infini|rdoChar|abs|sqrt|pow|floor|ceil|round|min|max|random)(?![\\p{L}\\p{M}0-9_])",
           "name": "support.function.builtin.darijascript"
         },
         {

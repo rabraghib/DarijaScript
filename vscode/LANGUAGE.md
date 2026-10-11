@@ -122,7 +122,7 @@ jerreb {
 | `min(n, ...)`, `max(n, ...)`               | Minimum/maximum; at least one argument                   |
 | `random()`                                 | Random number in `[0, 1)`                                |
 | `infini()`                                 | Positive infinity                                        |
-| `toLetter(index)`                          | A–Z for integer indices 0–25                             |
+| `rdoChar(index)`                           | A–Z for integer indices 0–25                             |
 | `n3ess(milliseconds)`                      | Sleep; integer duration from 0 to 86,400,000             |
 
 Invalid conversions and math domain errors raise runtime errors. Math helpers require finite numeric arguments.

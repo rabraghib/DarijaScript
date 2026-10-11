@@ -10,11 +10,11 @@
 9ayed result = djikstra(graph);
 9ayed node = 0;
 kol (entry f result) {
-    golih("MIN[" + toLetter(node) + "]: " + entry[0]);
-    9ayed path = toLetter(node);
+    golih("MIN[" + rdoChar(node) + "]: " + entry[0]);
+    9ayed path = rdoChar(node);
     9ayed prev = entry[1];
     ma7dBa9i (prev != -1 && prev != node) {
-        path = toLetter(prev) + " -> " + path;
+        path = rdoChar(prev) + " -> " + path;
         ilakan (prev == 0) { w9ef; }
         prev = result[prev][1];
     }

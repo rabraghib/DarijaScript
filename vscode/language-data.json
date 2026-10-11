@@ -99,8 +99,8 @@
       "detail": "infini() — positive infinity"
     },
     {
-      "name": "toLetter",
-      "detail": "toLetter(index) — A to Z for indices 0 to 25"
+      "name": "rdoChar",
+      "detail": "rdoChar(index) — A to Z for indices 0 to 25"
     },
     {
       "name": "abs",
