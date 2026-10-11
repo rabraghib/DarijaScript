@@ -1,3 +1,22 @@
+# [2.0.0](https://github.com/rabraghib/DarijaScript/compare/v1.7.4...v2.0.0) (2026-10-11)
+
+
+* feat(language)!: replace legacy collection helpers ([f47795a](https://github.com/rabraghib/DarijaScript/commit/f47795a3cb62b5004c1d5bfe64208443e57e497c))
+
+
+### Features
+
+* **editor:** add diagnostics and update highlighting ([4b78e6f](https://github.com/rabraghib/DarijaScript/commit/4b78e6ff45a865cac00d76d3197f01cc5c81de72))
+* enable dakhel input in playground terminal ([1744c97](https://github.com/rabraghib/DarijaScript/commit/1744c9771978d99c42583315939ef4466901b3fe))
+* **vscode:** highlight Markdown code blocks and previews ([cfcf556](https://github.com/rabraghib/DarijaScript/commit/cfcf556d2926571f459882eb77fcf9cd75f428ca))
+
+
+### BREAKING CHANGES
+
+* Remove l, c, r, ara, atih, dirRow, and dirCol. Use native list literals, indexed access and assignment, and collection methods. Numeric strings now concatenate under +; convert input before arithmetic.
+
+
+
 ## [1.7.4](https://github.com/rabraghib/DarijaScript/compare/v1.7.3...v1.7.4) (2026-10-11)
 
 
