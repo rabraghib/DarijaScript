@@ -5,7 +5,6 @@ import (
 	"io"
 	"math"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -56,9 +55,6 @@ func (eval *Evaluator) evaluateBuiltinFunctionCall(callExpression *parser.CallEx
 		_, err = fmt.Fprintln(eval.output, displayValue(arg))
 		return nil, err
 	case "dakhel":
-		if runtime.GOOS == "js" {
-			return nil, fmt.Errorf("dakhel() is not supported in the browser")
-		}
 		if len(callExpression.Arguments) > 1 {
 			return nil, fmt.Errorf("dakhel() takes at most 1 argument, %d given", len(callExpression.Arguments))
 		}

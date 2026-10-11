@@ -9,6 +9,11 @@ export interface ICodingExample {
 export async function getExamples(): Promise<ICodingExample[]> {
   return [
     {
+      name: 'Input / Output',
+      key: 'interactive-input',
+      code: '9ayed name = dakhel("Chno smiytek? ");\n9ayed birthYear = rdo3adad(dakhel("Ina 3am tzaditi a " + name + "? "));\n\ngolih("");\ngolih("Smiytek " + name + " w 3omrek " + (2024-birthYear) + " sana");\n',
+    },
+    {
       name: 'Hello, World!',
       key: 'hello-world',
       code: '\ngolih("Salam 3likom!!");\n',

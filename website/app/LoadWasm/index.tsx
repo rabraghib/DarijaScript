@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type RuntimeStatus = 'loading' | 'ready' | 'running' | 'error';
+export type RuntimeStatus = 'loading' | 'ready' | 'running' | 'waiting-input' | 'error';
 
 export function useDarijaScript(writeOutput: (output: string) => void) {
   const [status, setStatus] = useState<RuntimeStatus>('loading');
@@ -11,6 +11,8 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
   const worker = useRef<Worker | null>(null);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentStatus = useRef<RuntimeStatus>('loading');
+  const remainingTime = useRef(10_000);
+  const deadline = useRef(0);
 
   useEffect(() => {
     output.current = writeOutput;
@@ -46,6 +48,11 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
       if (worker.current !== instance) return;
       const message = event.data;
       switch (message.type) {
+        case 'input-request':
+          remainingTime.current = Math.max(0, deadline.current - Date.now());
+          clearTimeoutHandle();
+          updateStatus('waiting-input');
+          break;
         case 'ready':
           updateStatus('ready');
           break;
@@ -84,18 +91,32 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
     start();
   }, [start]);
 
+  const armTimeout = useCallback(() => {
+    deadline.current = Date.now() + remainingTime.current;
+    timeout.current = setTimeout(() => {
+      output.current('\r\nExecution timed out after 10 seconds.\r\n');
+      start();
+    }, remainingTime.current);
+  }, [start]);
+
+  const submitInput = useCallback((value: string) => {
+    if (currentStatus.current !== 'waiting-input' || !worker.current) return;
+    output.current('\r\n');
+    updateStatus('running');
+    armTimeout();
+    worker.current.postMessage({ type: 'input', value });
+  }, [armTimeout, updateStatus]);
+
   const run = useCallback(
     (code: string) => {
       if (currentStatus.current !== 'ready' || !worker.current) return;
       updateStatus('running');
+      remainingTime.current = 10_000;
+      armTimeout();
       worker.current.postMessage({ type: 'run', code });
-      timeout.current = setTimeout(() => {
-        output.current('\r\nExecution timed out after 10 seconds.\r\n');
-        start();
-      }, 10_000);
     },
-    [start, updateStatus],
+    [armTimeout, updateStatus],
   );
 
-  return { status, error, run, stop, retry: start };
+  return { status, error, run, stop, submitInput, retry: start };
 }

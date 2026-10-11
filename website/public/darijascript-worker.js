@@ -3,6 +3,13 @@ let pendingOutput = '';
 let outputBytes = 0;
 let overflow = false;
 let running = false;
+let waitingForInput = false;
+
+globalThis.requestDarijaScriptInput = () => {
+  flushOutput();
+  waitingForInput = true;
+  postMessage({ type: 'input-request' });
+};
 
 function flushOutput() {
   if (pendingOutput) {
@@ -42,6 +49,13 @@ const ready = initialize().catch((error) => {
 });
 
 onmessage = async ({ data }) => {
+  if (data.type === 'input') {
+    if (running && waitingForInput && typeof data.value === 'string') {
+      waitingForInput = false;
+      globalThis.submitDarijaScriptInput(data.value);
+    }
+    return;
+  }
   if (data.type !== 'run' || running || await ready === false) return;
   running = true;
   outputBytes = 0;
@@ -55,5 +69,6 @@ onmessage = async ({ data }) => {
     postMessage({ type: 'fatal', error: error.message });
   } finally {
     running = false;
+    waitingForInput = false;
   }
 };

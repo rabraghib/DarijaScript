@@ -30,10 +30,11 @@ export default function PlaygroundPage({
     terminal.current?.write(output);
   }, []);
   const runtime = useDarijaScript(writeOutput);
+  const { status, submitInput } = runtime;
 
   useEffect(() => {
     if (!terminalRef.current) return;
-    const instance = new Terminal({ convertEol: true, lineHeight: 1.5 });
+    const instance = new Terminal({ convertEol: true, lineHeight: 1.5, disableStdin: true });
     terminal.current = instance;
     instance.open(terminalRef.current);
     const fitAddon = new FitAddon();
@@ -47,6 +48,39 @@ export default function PlaygroundPage({
       terminal.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const instance = terminal.current;
+    if (!instance) return;
+    const waiting = status === 'waiting-input';
+    instance.options.disableStdin = !waiting;
+    instance.options.cursorBlink = waiting;
+    instance.write(waiting ? '\x1b[?25h' : '\x1b[?25l');
+    if (!waiting) return;
+
+    let value = '';
+    let accepting = true;
+    instance.write('\x1b[s');
+    instance.focus();
+    const subscription = instance.onData((data) => {
+      if (!accepting) return;
+      if (data === '\r' || data === '\n') {
+        accepting = false;
+        instance.options.disableStdin = true;
+        submitInput(value);
+        return;
+      }
+      if (data === '\x7f' || data === '\b') {
+        value = Array.from(value).slice(0, -1).join('');
+      } else {
+        // Ignore navigation/control sequences; paste remains one input line.
+        if (data.includes('\x1b')) return;
+        value += data.replace(/\r\n|[\r\n\t]/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+      }
+      instance.write('\x1b[u\x1b[J' + value);
+    });
+    return () => subscription.dispose();
+  }, [status, submitInput]);
 
   function runCode() {
     terminal.current?.clear();
@@ -74,7 +108,9 @@ export default function PlaygroundPage({
         </div>
         <PlaygroundSection title={<>Terminal</>}>
           {runtime.error && <p role="alert" className="px-4 text-red-400">{runtime.error}</p>}
-          <div className="h-full bg-black w-full" ref={terminalRef}></div>
+          <div className="h-full flex flex-col bg-black">
+            <div className="flex-1 min-h-0 w-full" ref={terminalRef}></div>
+          </div>
         </PlaygroundSection>
       </div>
     </>
@@ -152,7 +188,7 @@ function CodeEditorActions({
       >
         {status === 'loading' ? 'Loading…' : 'Run'}
       </button>
-      {status === 'running' && <button onClick={onStop}>Stop</button>}
+      {(status === 'running' || status === 'waiting-input') && <button onClick={onStop}>Stop</button>}
       {status === 'error' && <button onClick={onRetry}>Retry</button>}
     </div>
   );
