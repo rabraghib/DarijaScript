@@ -36,6 +36,15 @@ The [VS Code extension](vscode) provides highlighting, completions, diagnostics,
 
 Open the guide from the Command Palette with **DarijaScript: Open Language Reference**.
 
+In the VS Code Markdown editor and preview, use `darijascript` or `ds` on fenced code blocks for syntax highlighting:
+
+````markdown
+```darijascript
+9ayed name = "Salam";
+golih(name);
+```
+````
+
 ## Development
 
 Run `go build .` to build the interpreter and CLI.

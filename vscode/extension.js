@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const { execFile } = require('node:child_process');
 const path = require('node:path');
 const data = require('./language-data.json');
+const { extendMarkdownIt } = require('./markdown-preview');
 
 function invoke(document, operation, args = []) {
   const executable = vscode.workspace.getConfiguration('darijascript', document.uri).get('interpreterPath', 'darijascript');
@@ -97,6 +98,7 @@ function activate(context) {
     }),
   );
   vscode.workspace.textDocuments.forEach(schedule);
+  return { extendMarkdownIt };
 }
 
 module.exports = { activate };

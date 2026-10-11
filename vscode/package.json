@@ -26,6 +26,7 @@
     "Programming Languages"
   ],
   "contributes": {
+    "markdown.markdownItPlugins": true,
     "commands": [
       {
         "command": "darijascript.openLanguageReference",
@@ -65,6 +66,16 @@
         "language": "darijascript",
         "scopeName": "source.darijascript",
         "path": "./syntaxes/darijascript.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.darijascript.codeblock",
+        "path": "./syntaxes/darijascript-markdown.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.darijascript": "darijascript"
+        }
       }
     ],
     "snippets": [
