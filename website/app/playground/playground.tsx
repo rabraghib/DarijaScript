@@ -1,18 +1,16 @@
 'use client';
 
 import CodeMirror, { EditorView } from '@uiw/react-codemirror';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import DarijaScript, { FontSizeThemeExtension } from './codemirror/codemirror';
 import { ICodingExample } from './examples';
-import { githubDarkInit } from '@uiw/codemirror-theme-github';
-import { useDarijaScript, RuntimeStatus } from '../LoadWasm';
+import { darijaScriptTheme } from './codemirror/theme';
+import { useDarijaScript, RuntimeStatus, SourceDiagnostic } from '../LoadWasm';
 import { useRouter } from 'next/navigation';
-
-import { tags } from '@lezer/highlight';
 
 export default function PlaygroundPage({
   examples,
@@ -30,22 +28,45 @@ export default function PlaygroundPage({
     terminal.current?.write(output);
   }, []);
   const runtime = useDarijaScript(writeOutput);
-  const { status, submitInput } = runtime;
+  const { status, submitInput, check: checkSource } = runtime;
+  const [formatError, setFormatError] = useState('');
+  const checkCode = useCallback(async (source: string) => {
+    if (status !== 'ready') return [];
+    return checkSource(source);
+  }, [status, checkSource]);
+
+  async function formatCode() {
+    const original = code;
+    try {
+      const formatted = await runtime.format(original);
+      setCode(current => current === original ? formatted : current);
+      setFormatError('');
+    } catch (error) {
+      setFormatError(error instanceof Error ? error.message : 'Could not format the program.');
+    }
+  }
 
   useEffect(() => {
     if (!terminalRef.current) return;
     const instance = new Terminal({ convertEol: true, lineHeight: 1.5, disableStdin: true });
     terminal.current = instance;
-    instance.open(terminalRef.current);
+    const container = terminalRef.current;
     const fitAddon = new FitAddon();
     instance.loadAddon(fitAddon);
-    fitAddon.fit();
-    const resize = new ResizeObserver(() => fitAddon.fit());
-    resize.observe(terminalRef.current);
+    const resize = new ResizeObserver(() => {
+      if (terminal.current === instance) fitAddon.fit();
+    });
+    // Avoid xterm's queued viewport callback racing Strict Mode cleanup.
+    const frame = requestAnimationFrame(() => {
+      instance.open(container);
+      fitAddon.fit();
+      resize.observe(container);
+    });
     return () => {
+      cancelAnimationFrame(frame);
       resize.disconnect();
-      instance.dispose();
       terminal.current = null;
+      instance.dispose();
     };
   }, []);
 
@@ -96,14 +117,17 @@ export default function PlaygroundPage({
             title={
               <CodeEditorTitle examples={examples} starterKey={starterKey} />
             }
-            actions={<CodeEditorActions onRun={runCode} onStop={runtime.stop} onRetry={runtime.retry} status={runtime.status} />}
+            actions={<CodeEditorActions onRun={runCode} onFormat={formatCode} onStop={runtime.stop} onRetry={runtime.retry} status={runtime.status} />}
           >
             <AppCodeEditor
               value={code}
+              check={checkCode}
               onChange={(value) => {
                 setCode(value);
+                setFormatError('');
               }}
             />
+            {formatError && <p role="alert" className="px-4 text-red-400">{formatError}</p>}
           </PlaygroundSection>
         </div>
         <PlaygroundSection title={<>Terminal</>}>
@@ -170,17 +194,20 @@ function CodeEditorTitle({
 
 function CodeEditorActions({
   onRun,
+  onFormat,
   onStop,
   onRetry,
   status,
 }: Readonly<{
   onRun: () => void;
+  onFormat: () => void;
   onStop: () => void;
   onRetry: () => void;
   status: RuntimeStatus;
 }>) {
   return (
     <div className="flex space-x-4">
+      <button onClick={onFormat} disabled={status !== 'ready'} className="disabled:opacity-50">Format</button>
       <button
         onClick={onRun}
         disabled={status !== 'ready'}
@@ -196,47 +223,26 @@ function CodeEditorActions({
 
 function AppCodeEditor({
   value,
+  check,
   onChange,
 }: Readonly<{
   value: string;
+  check: (source: string) => Promise<SourceDiagnostic[]>;
   onChange: (value: string) => void;
 }>) {
+  const language = useMemo(() => DarijaScript(check), [check]);
   return (
     <CodeMirror
       value={value}
       lang="darijascript"
       className="h-full w-full"
-      theme={githubDarkInit({
-        styles: [
-          {
-            tag: tags.definitionKeyword,
-            color: '#b972cf',
-          },
-          {
-            tag: tags.operator,
-            color: '#c9d1d9',
-          },
-          {
-            tag: tags.string,
-            color: '#93bd76',
-          },
-          {
-            tag: tags.number,
-            color: '#b1855d',
-          },
-          // {
-          //   tag: [tags.function(tags.variableName)],
-          //   color: 'yellow',
-          // },
-          // { tag: tags.definition(tags.variableName), color: 'yellow' },
-        ],
-      })}
+      theme={darijaScriptTheme}
       onChange={(value) => {
         onChange(value);
       }}
       data-enable-grammarly="false"
       extensions={[
-        DarijaScript(),
+        language,
         FontSizeThemeExtension,
         EditorView.lineWrapping,
       ]}

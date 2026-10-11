@@ -1,0 +1,28 @@
+name: Language and editor checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - uses: extractions/setup-just@v4
+      - run: go test ./...
+      - run: go vet ./src/... ./cmd/...
+      - run: npm --prefix website ci
+      - run: npm --prefix website run check-examples
+      - run: npm --prefix website run typecheck
+      - run: npm --prefix website run lint
+      - run: just wasm
+      - run: npm --prefix website run build

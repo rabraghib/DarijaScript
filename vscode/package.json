@@ -2,8 +2,12 @@
   "name": "ds-language-service",
   "version": "1.7.4",
   "publisher": "rabraghib",
-  "displayName": "DarijaScript Language Service",
-  "description": "Provides syntax highlighting and bracket matching for DarijaScript.",
+  "displayName": "DarijaScript",
+  "description": "DarijaScript highlighting, completions, syntax diagnostics, and formatting.",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:darijascript"
+  ],
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#007ACC",
@@ -21,13 +25,16 @@
     "Programming Languages"
   ],
   "contributes": {
-    "iconThemes": [
-      {
-        "id": "ds-icon-theme",
-        "label": "DarijaScript Icon Theme",
-        "path": "./images/darijascript-icon-theme.json"
+    "configuration": {
+      "title": "DarijaScript",
+      "properties": {
+        "darijascript.interpreterPath": {
+          "type": "string",
+          "default": "darijascript",
+          "description": "Path to the updated DarijaScript CLI used for syntax checking and formatting."
+        }
       }
-    ],
+    },
     "languages": [
       {
         "id": "darijascript",
@@ -38,7 +45,11 @@
         "extensions": [
           ".ds"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/file-icon.png",
+          "dark": "./images/file-icon.png"
+        }
       }
     ],
     "grammars": [

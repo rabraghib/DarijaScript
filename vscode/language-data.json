@@ -1,0 +1,184 @@
+{
+  "keywords": [
+    {
+      "name": "9ayed",
+      "detail": "Declare a variable"
+    },
+    {
+      "name": "fonksyon",
+      "detail": "Declare or create a function"
+    },
+    {
+      "name": "ilakan",
+      "detail": "If"
+    },
+    {
+      "name": "ilamakanch",
+      "detail": "If not"
+    },
+    {
+      "name": "sinn",
+      "detail": "Else"
+    },
+    {
+      "name": "ma7dBa9i",
+      "detail": "While"
+    },
+    {
+      "name": "kol",
+      "detail": "Loop over values: kol (item f collection)"
+    },
+    {
+      "name": "w9ef",
+      "detail": "Break the nearest loop"
+    },
+    {
+      "name": "kmmel",
+      "detail": "Continue the nearest loop"
+    },
+    {
+      "name": "jerreb",
+      "detail": "Try a block"
+    },
+    {
+      "name": "ched",
+      "detail": "Catch an error: ched (err)"
+    },
+    {
+      "name": "rjje3",
+      "detail": "Return"
+    },
+    {
+      "name": "WAA",
+      "detail": "Throw an error"
+    },
+    {
+      "name": "walo",
+      "detail": "No value"
+    },
+    {
+      "name": "s7i7",
+      "detail": "True"
+    },
+    {
+      "name": "ghalt",
+      "detail": "False"
+    }
+  ],
+  "builtins": [
+    {
+      "name": "golih",
+      "detail": "golih(value) — print a value"
+    },
+    {
+      "name": "dakhel",
+      "detail": "dakhel(prompt?) — read a line of text"
+    },
+    {
+      "name": "rdo3adad",
+      "detail": "rdo3adad(value) — explicitly convert to a number"
+    },
+    {
+      "name": "rdoBooleen",
+      "detail": "rdoBooleen(value) — explicitly convert to a boolean"
+    },
+    {
+      "name": "rdoString",
+      "detail": "rdoString(value) — convert to text"
+    },
+    {
+      "name": "len",
+      "detail": "len(value) — list items, dictionary entries, or Unicode code points"
+    },
+    {
+      "name": "n3ess",
+      "detail": "n3ess(milliseconds) — sleep"
+    },
+    {
+      "name": "infini",
+      "detail": "infini() — positive infinity"
+    },
+    {
+      "name": "toLetter",
+      "detail": "toLetter(index) — A to Z for indices 0 to 25"
+    },
+    {
+      "name": "abs",
+      "detail": "abs(number)"
+    },
+    {
+      "name": "sqrt",
+      "detail": "sqrt(number)"
+    },
+    {
+      "name": "pow",
+      "detail": "pow(base, exponent)"
+    },
+    {
+      "name": "floor",
+      "detail": "floor(number)"
+    },
+    {
+      "name": "ceil",
+      "detail": "ceil(number)"
+    },
+    {
+      "name": "round",
+      "detail": "round(number) — ties away from zero"
+    },
+    {
+      "name": "min",
+      "detail": "min(number, ...)"
+    },
+    {
+      "name": "max",
+      "detail": "max(number, ...)"
+    },
+    {
+      "name": "random",
+      "detail": "random() — number in [0, 1)"
+    }
+  ],
+  "methods": [
+    {
+      "name": "append",
+      "detail": "list.append(value) — mutate the list; return walo"
+    },
+    {
+      "name": "remove",
+      "detail": "list.remove(index) / dictionary.remove(key) — return the removed value"
+    },
+    {
+      "name": "slice",
+      "detail": "list.slice(start, end?) / string.slice(start, end?) — end is exclusive"
+    },
+    {
+      "name": "contains",
+      "detail": "list.contains(value) / dictionary.contains(key) / string.contains(text)"
+    },
+    {
+      "name": "keys",
+      "detail": "dictionary.keys() — sorted keys"
+    },
+    {
+      "name": "join",
+      "detail": "listOfStrings.join(separator)"
+    },
+    {
+      "name": "split",
+      "detail": "string.split(separator)"
+    },
+    {
+      "name": "trim",
+      "detail": "string.trim()"
+    },
+    {
+      "name": "substring",
+      "detail": "string.substring(start, end?) — Unicode code points"
+    },
+    {
+      "name": "indexOf",
+      "detail": "string.indexOf(text) — Unicode index or -1"
+    }
+  ]
+}

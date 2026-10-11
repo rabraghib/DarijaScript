@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type RuntimeStatus = 'loading' | 'ready' | 'running' | 'waiting-input' | 'error';
+export interface SourceDiagnostic { message: string; line: number; column: number }
+type ToolResult = string | SourceDiagnostic[];
+interface PendingTool { resolve: (value: ToolResult) => void; reject: (error: Error) => void }
 
 export function useDarijaScript(writeOutput: (output: string) => void) {
   const [status, setStatus] = useState<RuntimeStatus>('loading');
@@ -13,6 +16,12 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
   const currentStatus = useRef<RuntimeStatus>('loading');
   const remainingTime = useRef(10_000);
   const deadline = useRef(0);
+  const nextRequest = useRef(0);
+  const pendingTools = useRef(new Map<number, PendingTool>());
+  const rejectTools = useCallback(() => {
+    for (const pending of pendingTools.current.values()) pending.reject(new Error('The interpreter was restarted.'));
+    pendingTools.current.clear();
+  }, []);
 
   useEffect(() => {
     output.current = writeOutput;
@@ -31,6 +40,7 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
   const initializeWorker = useCallback(() => {
     clearTimeoutHandle();
     worker.current?.terminate();
+    rejectTools();
     const instance = new Worker('/darijascript-worker.js');
     worker.current = instance;
     const fail = (message: string) => {
@@ -38,6 +48,7 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
       clearTimeoutHandle();
       instance.terminate();
       worker.current = null;
+      rejectTools();
       setError(message);
       updateStatus('error');
       output.current('Error: ' + message + '\r\n');
@@ -48,6 +59,15 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
       if (worker.current !== instance) return;
       const message = event.data;
       switch (message.type) {
+        case 'tool-result': {
+          const pending = pendingTools.current.get(message.id);
+          if (pending) {
+            pendingTools.current.delete(message.id);
+            if (message.error) pending.reject(new Error(message.error));
+            else pending.resolve(message.result);
+          }
+          break;
+        }
         case 'input-request':
           remainingTime.current = Math.max(0, deadline.current - Date.now());
           clearTimeoutHandle();
@@ -69,7 +89,7 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
           break;
       }
     };
-  }, [clearTimeoutHandle, updateStatus]);
+  }, [clearTimeoutHandle, updateStatus, rejectTools]);
 
   const start = useCallback(() => {
     updateStatus('loading');
@@ -83,8 +103,9 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
       clearTimeoutHandle();
       worker.current?.terminate();
       worker.current = null;
+      rejectTools();
     };
-  }, [initializeWorker, clearTimeoutHandle]);
+  }, [initializeWorker, clearTimeoutHandle, rejectTools]);
 
   const stop = useCallback(() => {
     output.current('\r\nExecution stopped.\r\n');
@@ -118,5 +139,16 @@ export function useDarijaScript(writeOutput: (output: string) => void) {
     [armTimeout, updateStatus],
   );
 
-  return { status, error, run, stop, submitInput, retry: start };
+  const requestTool = useCallback((operation: 'check' | 'format', code: string): Promise<ToolResult> => {
+    if (currentStatus.current !== 'ready' || !worker.current) return Promise.reject(new Error('The interpreter is not ready.'));
+    const id = ++nextRequest.current;
+    return new Promise((resolve, reject) => {
+      pendingTools.current.set(id, { resolve, reject });
+      worker.current!.postMessage({ type: 'tool', operation, code, id });
+    });
+  }, []);
+  const check = useCallback(async (code: string) => await requestTool('check', code) as SourceDiagnostic[], [requestTool]);
+  const format = useCallback(async (code: string) => await requestTool('format', code) as string, [requestTool]);
+
+  return { status, error, run, stop, submitInput, check, format, retry: start };
 }

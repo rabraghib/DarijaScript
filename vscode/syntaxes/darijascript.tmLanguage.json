@@ -1,0 +1,225 @@
+{
+  "$schema": "https://www.schemastore.org/tmlanguage.json",
+  "name": "DarijaScript",
+  "scopeName": "source.darijascript",
+  "fileTypes": ["ds"],
+  "patterns": [
+    {
+      "include": "#code"
+    }
+  ],
+  "repository": {
+    "code": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#foreach"
+        },
+        {
+          "include": "#function-declarations"
+        },
+        {
+          "match": "(?<![\\p{L}\\p{M}0-9_])9ayed(?![\\p{L}\\p{M}0-9_])",
+          "name": "keyword.other.definition.darijascript"
+        },
+        {
+          "match": "(?<![\\p{L}\\p{M}0-9_])(?:ilakan|ilamakanch|sinn|ma7dBa9i|rjje3|w9ef|kmmel|jerreb|ched|WAA+)(?![\\p{L}\\p{M}0-9_])",
+          "name": "keyword.control.darijascript"
+        },
+        {
+          "match": "(?<![\\p{L}\\p{M}0-9_])(?:s7i7|ghalt|true|false|walo)(?![\\p{L}\\p{M}0-9_])",
+          "name": "constant.language.darijascript"
+        },
+        {
+          "match": "(?<![\\p{L}\\p{M}0-9_])(?:golih|dakhel|rdo3adad|rdoBooleen|rdoString|len|n3ess|infini|toLetter|abs|sqrt|pow|floor|ceil|round|min|max|random)(?![\\p{L}\\p{M}0-9_])",
+          "name": "support.function.builtin.darijascript"
+        },
+        {
+          "match": "[0-9]+(?:\\.[0-9]*)?",
+          "name": "constant.numeric.darijascript"
+        },
+        {
+          "match": "(\\.)\\s*([\\p{L}\\p{M}_][\\p{L}\\p{M}0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.darijascript"
+            },
+            "2": {
+              "name": "entity.name.function.method.darijascript"
+            }
+          }
+        },
+        {
+          "match": "[\\p{L}\\p{M}_][\\p{L}\\p{M}0-9_]*(?=\\s*\\()",
+          "name": "entity.name.function.call.darijascript"
+        },
+        {
+          "match": "[\\p{L}\\p{M}_][\\p{L}\\p{M}0-9_]*",
+          "name": "variable.other.readwrite.darijascript"
+        },
+        {
+          "match": "&&|\\|\\||[=!<>]=?|[+*/%\\-]",
+          "name": "keyword.operator.darijascript"
+        },
+        {
+          "include": "#parens"
+        },
+        {
+          "match": "[\\[\\]]",
+          "name": "punctuation.section.brackets.darijascript"
+        },
+        {
+          "match": "[{}]",
+          "name": "punctuation.section.braces.darijascript"
+        },
+        {
+          "match": "[,;:]",
+          "name": "punctuation.separator.darijascript"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.darijascript",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.darijascript"
+        },
+        {
+          "match": "#.*$",
+          "name": "comment.line.number-sign.darijascript"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.darijascript",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "match": "\\\\[\"\\\\nrt]",
+          "name": "constant.character.escape.darijascript"
+        },
+        {
+          "match": "\\\\.",
+          "name": "invalid.illegal.escape.darijascript"
+        },
+        {
+          "match": "\\\\$",
+          "name": "invalid.illegal.escape.darijascript"
+        }
+      ]
+    },
+    "parens": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.parens.darijascript"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.parens.darijascript"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#code"
+        }
+      ]
+    },
+    "function-declarations": {
+      "name": "meta.function.declaration.darijascript",
+      "begin": "(?<![\\p{L}\\p{M}0-9_])(fonksyon)(?![\\p{L}\\p{M}0-9_])",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.definition.darijascript"
+        }
+      },
+      "end": "(?=\\()|(?=[{;=])",
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "match": "[\\p{L}\\p{M}_][\\p{L}\\p{M}0-9_]*",
+          "name": "entity.name.function.definition.darijascript"
+        }
+      ]
+    },
+    "foreach": {
+      "name": "meta.foreach.header.darijascript",
+      "begin": "(?<![\\p{L}\\p{M}0-9_])(kol)(?![\\p{L}\\p{M}0-9_])",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.darijascript"
+        }
+      },
+      "end": "(?<=\\))|(?=\\{)",
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "begin": "\\(",
+          "end": "\\)",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.parens.darijascript"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.parens.darijascript"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "name": "meta.foreach.binding.darijascript",
+              "begin": "[\\p{L}\\p{M}_][\\p{L}\\p{M}0-9_]*",
+              "beginCaptures": {
+                "0": {
+                  "name": "variable.other.definition.darijascript"
+                }
+              },
+              "end": "(?=\\))",
+              "patterns": [
+                {
+                  "include": "#comments"
+                },
+                {
+                  "name": "meta.foreach.iterable.darijascript",
+                  "begin": "(?<![\\p{L}\\p{M}0-9_])(f)(?![\\p{L}\\p{M}0-9_])",
+                  "beginCaptures": {
+                    "1": {
+                      "name": "keyword.control.foreach.darijascript"
+                    }
+                  },
+                  "end": "(?=\\))",
+                  "patterns": [
+                    {
+                      "include": "#code"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

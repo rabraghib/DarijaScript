@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync-examples": "node scripts/sync-examples.mjs",
+    "check-examples": "node scripts/sync-examples.mjs --check",
+    "prebuild": "npm run check-examples",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -10,7 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.15.0",
     "@codemirror/language": "^6.10.1",
+    "@codemirror/lint": "^6.5.0",
     "@uiw/codemirror-theme-github": "^4.21.25",
     "@uiw/react-codemirror": "^4.21.25",
     "@xterm/addon-fit": "^0.10.0",

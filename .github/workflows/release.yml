@@ -18,9 +18,9 @@ jobs:
         id: releaser
         with:
           output-file: CHANGELOG.md
-          version-file: language-service/package.json
+          version-file: vscode/package.json
           bump-files: |
-            language-service/package.json
+            vscode/package.json
   build-deploy:
     if: needs.release-up.outputs.released == 'true'
     needs: release-up
@@ -47,7 +47,7 @@ jobs:
       - name: Build vscode extension
         run: |
           npm install -g @vscode/vsce
-          cd language-service
+          cd vscode
           vsce package ${{ needs.release-up.outputs.version }} -o ../bin/darijascript-vscode-extension-${{ needs.release-up.outputs.tag }}.vsix
       - name: Archive vscode extension
         uses: actions/upload-artifact@v4

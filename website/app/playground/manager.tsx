@@ -2,7 +2,7 @@
 
 import { ICodingExample } from './examples';
 import CodeMirror, { EditorView } from '@uiw/react-codemirror';
-import { githubDark } from '@uiw/codemirror-theme-github';
+import { darijaScriptTheme } from './codemirror/theme';
 import DarijaScript, { FontSizeThemeExtension } from './codemirror/codemirror';
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -33,7 +33,11 @@ export default function PlaygroundManager({
 
   if (starterKey !== null) {
     return (
-      <DynamicPlaygroundWithNoSSR key={starterKey} examples={examples} starterKey={starterKey} />
+      <DynamicPlaygroundWithNoSSR
+        key={starterKey}
+        examples={examples}
+        starterKey={starterKey}
+      />
     );
   }
   return (
@@ -72,7 +76,7 @@ function ExampleCard({
         value={example.code}
         lang="darijascript"
         className="h-44 w-full mt-4"
-        theme={githubDark}
+        theme={darijaScriptTheme}
         readOnly={true}
         data-enable-grammarly="false"
         extensions={[

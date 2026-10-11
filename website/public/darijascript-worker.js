@@ -56,6 +56,25 @@ onmessage = async ({ data }) => {
     }
     return;
   }
+  if (data.type === 'tool') {
+    if (running || await ready === false) {
+      postMessage({ type: 'tool-result', id: data.id, error: 'The interpreter is busy or unavailable.' });
+      return;
+    }
+    try {
+      if (data.operation === 'check') {
+        postMessage({ type: 'tool-result', id: data.id, result: JSON.parse(globalThis.checkDarijaScript(data.code)) });
+      } else if (data.operation === 'format') {
+        const result = globalThis.formatDarijaScript(data.code);
+        postMessage({ type: 'tool-result', id: data.id, result: result.source, error: result.ok ? undefined : result.error });
+      } else {
+        postMessage({ type: 'tool-result', id: data.id, error: 'Unknown editor operation.' });
+      }
+    } catch (error) {
+      postMessage({ type: 'tool-result', id: data.id, error: error.message });
+    }
+    return;
+  }
   if (data.type !== 'run' || running || await ready === false) return;
   running = true;
   outputBytes = 0;
